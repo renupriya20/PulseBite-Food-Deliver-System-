@@ -257,7 +257,7 @@ function SignUp() {
             >
               <option value="user">🍔 Foodie</option>
               <option value="owner">🍽️ Restaurant Partner</option>
-              <option value="deliveryBoy">🛵 Delivery Rider</option>
+              {/* <option value="deliveryBoy">🛵 Delivery Rider</option> */}
             </select>
           </div>
 

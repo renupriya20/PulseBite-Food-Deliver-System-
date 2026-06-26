@@ -14,8 +14,10 @@ import EditItem from "./pages/EditItem";
 import ForgotPassword from "./pages/ForgotPassword";
 import Home from "./pages/Home";
 import Login from "./pages/Login";
+
 import Register from "./pages/Register";
 import SSOCallback from "./pages/SSOCallback";
+import OrderPlaced from "./pages/OrederPlaced";
 
 const App = () => {
   const { userData, loading } = useSelector((state) => state.user);
@@ -77,7 +79,13 @@ const App = () => {
         path="/checkout"
         element={userData ? <Checkout /> : <Navigate to={"/login"} />}
       />
+       <Route
+        path="/order-placed"
+        element={userData ? <OrderPlaced /> : <Navigate to={"/login"} />}
+      />
     </Routes>
+
+    
   );
 };
 

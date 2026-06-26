@@ -13,6 +13,8 @@ export const AUTH_ROUTES = {
 
 export const USER_ROUTES = {
   CURRENT_USER: `${BACKEND_URL}/api/v1/user/current-user`,
+  TOGGLE_ONLINE: `${BACKEND_URL}/api/v1/user/toggle-online`,
+  UPDATE_LOCATION: `${BACKEND_URL}/api/v1/user/update-location`,
 };
 
 export const SHOP_ROUTES = {
@@ -35,4 +37,16 @@ export const ITEM_ROUTES = {
 
 export const ORDER_ROUTES = {
   PLACE_ORDER: `${BACKEND_URL}/api/v1/order/place`,
+  GET_ORDERS: `${BACKEND_URL}/api/v1/order/orders`,
+  UPDATE_STATUS: (orderId, shopId) =>
+    `${BACKEND_URL}/api/v1/order/update-status/${orderId}/${shopId}`,
+  ACCEPT_ORDER: (orderId, shopId) =>
+    `${BACKEND_URL}/api/v1/order/accept/${orderId}/${shopId}`,
+  START_DELIVERY: (orderId, shopId) =>
+    `${BACKEND_URL}/api/v1/order/start-delivery/${orderId}/${shopId}`,
+  COMPLETE_DELIVERY: (orderId, shopId) =>
+    `${BACKEND_URL}/api/v1/order/complete-delivery/${orderId}/${shopId}`,
+  ASSIGN_DELIVERY_BOY: (orderId, shopId, deliveryBoyId) =>
+    `${BACKEND_URL}/api/v1/order/assign/${orderId}/${shopId}/${deliveryBoyId}`,
+  ONLINE_DELIVERY_BOYS: `${BACKEND_URL}/api/v1/order/online-delivery-boys`,
 };

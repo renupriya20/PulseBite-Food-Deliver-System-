@@ -11,7 +11,7 @@ import { AUTH_ROUTES } from "../constants/endpoints";
 import axiosInstance from "../lib/axios";
 import { setUserData } from "../redux/slices/userSlice";
 
-function Navbar() {
+function Navbar({ onOwnerOrdersClick }) {
   const [showSearch, setShowSearch] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
 
@@ -78,6 +78,22 @@ function Navbar() {
               </button>
             )}
 
+            {/* Delivery Boy: Online toggle indicator */}
+            {userData.role === "deliveryBoy" && (
+              <span
+                className={`hidden md:flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full ${
+                  userData.isOnline
+                    ? "bg-green-100 text-green-700"
+                    : "bg-stone-100 text-stone-500"
+                }`}
+              >
+                <span
+                  className={`w-2 h-2 rounded-full ${userData.isOnline ? "bg-green-500" : "bg-stone-400"}`}
+                />
+                {userData.isOnline ? "Online" : "Offline"}
+              </span>
+            )}
+
             {/* Owner: Add Item */}
             {userData.role === "owner" && shopData && (
               <>
@@ -100,11 +116,17 @@ function Navbar() {
             {/* Owner: My Orders */}
             {userData.role === "owner" && (
               <>
-                <button className="hidden md:flex items-center gap-1.5 bg-orange-50 text-orange-500 hover:bg-orange-100 text-sm font-medium px-3.5 py-2 rounded-full transition-colors cursor-pointer">
+                <button
+                  className="hidden md:flex items-center gap-1.5 bg-orange-50 text-orange-500 hover:bg-orange-100 text-sm font-medium px-3.5 py-2 rounded-full transition-colors cursor-pointer"
+                  onClick={onOwnerOrdersClick}
+                >
                   <TbReceipt2 size={16} />
                   My Orders
                 </button>
-                <button className="md:hidden w-9 h-9 flex items-center justify-center rounded-full bg-orange-50 text-orange-500 hover:bg-orange-100 transition-colors cursor-pointer">
+                <button
+                  className="md:hidden w-9 h-9 flex items-center justify-center rounded-full bg-orange-50 text-orange-500 hover:bg-orange-100 transition-colors cursor-pointer"
+                  onClick={onOwnerOrdersClick}
+                >
                   <TbReceipt2 size={17} />
                 </button>
               </>
