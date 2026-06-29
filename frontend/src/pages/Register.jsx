@@ -61,14 +61,14 @@ function SignUp() {
         {/* Top logo */}
         <div className="relative z-10">
           <span className="text-white text-2xl font-bold tracking-tight">
-            Order<span className="text-orange-100">Karo</span>
+            Pulse<span className="text-orange-100">Bite</span>
           </span>
         </div>
 
         {/* Center content */}
         <div className="relative z-10">
           <div className="text-orange-100 text-xs font-semibold tracking-[0.2em] uppercase mb-5">
-            Delivering Joy Since 2024
+            Delivering Joy Since 2026
           </div>
           <h2 className="text-white text-4xl xl:text-5xl font-bold leading-tight mb-6">
             Hunger?
@@ -109,7 +109,7 @@ function SignUp() {
           {/* Mobile brand header */}
           <div className="lg:hidden mb-8 text-center">
             <h1 className="text-3xl font-bold tracking-tight text-stone-900">
-              Order<span className="text-orange-500">Karo</span>
+              Pulse<span className="text-orange-500">Bite</span>
             </h1>
             <p className="mt-1 text-sm text-stone-600">
               Hunger? We've got you covered.
@@ -233,11 +233,10 @@ function SignUp() {
                   key={val}
                   type="button"
                   onClick={() => setRole(val)}
-                  className={`flex-1 py-2.5 text-xs font-semibold rounded-lg transition-all duration-200 cursor-pointer ${
-                    role === val
+                  className={`flex-1 py-2.5 text-xs font-semibold rounded-lg transition-all duration-200 cursor-pointer ${role === val
                       ? "bg-white text-orange-500 shadow-sm shadow-stone-200"
                       : "text-stone-600 hover:text-stone-600"
-                  }`}
+                    }`}
                 >
                   {label}
                 </button>

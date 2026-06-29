@@ -1,16 +1,20 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   FaBoxOpen,
   FaLocationDot,
   FaMotorcycle,
   FaPowerOff,
 } from "react-icons/fa6";
+import { FaPhone, FaRoute, FaSms } from "react-icons/fa";
+import { MdOutlineHowToReg } from "react-icons/md";
 import { useDispatch, useSelector } from "react-redux";
 import { toast } from "sonner";
 import { ORDER_ROUTES, USER_ROUTES } from "../constants/endpoints";
 import axiosInstance from "../lib/axios";
 import { setUserData } from "../redux/slices/userSlice";
 import Navbar from "./Navbar";
+import SmsSupportButton from "./SmsSupportButton";
+
 
 const STATUS_COLORS = {
   pending: "bg-yellow-100 text-yellow-700",
@@ -19,13 +23,70 @@ const STATUS_COLORS = {
   delivered: "bg-green-100 text-green-700",
 };
 
+function StatusTimeline({ status }) {
+  const steps = [
+    { key: "pending", label: "Pending", dot: "bg-yellow-500" },
+    { key: "preparing", label: "Preparing", dot: "bg-blue-500" },
+    { key: "out of delivery", label: "Out for delivery", dot: "bg-orange-500" },
+    { key: "delivered", label: "Delivered", dot: "bg-green-500" },
+  ];
+
+  const idx = steps.findIndex((s) => s.key === status);
+
+  return (
+    <div className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3">
+      <div className="flex items-center justify-between gap-2">
+        {steps.map((s, i) => {
+          const done = i <= idx && idx !== -1;
+          return (
+            <div key={s.key} className="flex flex-col items-center flex-1">
+              <div
+                className={`w-2.5 h-2.5 rounded-full ${done ? s.dot : "bg-stone-300"}`}
+              />
+              <p
+                className={`text-[10px] font-semibold mt-1 text-center ${done ? "text-stone-900" : "text-stone-400"}`}
+              >
+                {s.label}
+              </p>
+              {i < steps.length - 1 && (
+                <div
+                  className={`w-full h-0.5 mt-2 -mb-1 ${done ? "bg-stone-900" : "bg-stone-200"}`}
+                />
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function OrderCard({ order, shopOrder, type, onAction }) {
   const [otp, setOtp] = useState("");
   const shop = shopOrder.shop;
   const shopId = shop?._id || shopOrder.shop;
 
+  const customerPhone = order?.user?.mobile;
+  const customerCallHref = customerPhone
+    ? `tel:${String(customerPhone).replace(/[^0-9+]/g, "")}`
+    : null;
+
+  const addressText = order?.deliveryAddress?.text || "";
+  const mapsHref = addressText
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addressText)}`
+    : null;
+
+  const subtotal = shopOrder.subtotal;
+
+  const status = shopOrder.status;
+
+  const canAccept = type === "available";
+  const canStart = type === "my" && status === "preparing";
+  const canComplete = type === "my" && status === "out of delivery";
+
   return (
     <div className="w-full bg-white border border-stone-200 rounded-2xl p-5 shadow-sm hover:shadow-md transition-all">
+
       <div className="flex items-start justify-between gap-3 mb-4">
         <div>
           <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-orange-400 mb-1">
@@ -58,23 +119,62 @@ function OrderCard({ order, shopOrder, type, onAction }) {
         ))}
       </div>
 
-      <div className="border-t border-stone-100 pt-4 space-y-2">
+      <div className="border-t border-stone-100 pt-4 space-y-3">
         <div className="flex items-start gap-2 text-sm text-stone-600">
           <FaLocationDot className="text-orange-500 mt-0.5 shrink-0" />
           <span>{order.deliveryAddress?.text}</span>
         </div>
+
         {order.user && (
-          <p className="text-sm text-stone-500">
-            Customer: {order.user.fullName} · {order.user.mobile}
-          </p>
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-sm text-stone-500 truncate">
+                Customer: {order.user.fullName} · {order.user.mobile}
+              </p>
+              <p className="text-xs text-stone-400 mt-1">
+                Keep OTP ready for completion
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              {customerCallHref && (
+                <a
+                  href={customerCallHref}
+                  className="w-9 h-9 rounded-xl bg-orange-50 hover:bg-orange-100 text-orange-500 flex items-center justify-center"
+                  title="Call customer"
+                  aria-label="Call customer"
+                >
+                  <FaPhone size={16} />
+                </a>
+              )}
+
+              {mapsHref && (
+                <a
+                  href={mapsHref}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="w-9 h-9 rounded-xl bg-stone-50 hover:bg-stone-100 text-stone-700 flex items-center justify-center border border-stone-200"
+                  title="Navigate to customer"
+                  aria-label="Navigate to customer"
+                >
+                  <FaRoute size={16} />
+                </a>
+              )}
+            </div>
+          </div>
         )}
-        <p className="text-sm font-bold text-stone-900">
-          Subtotal: ₹{shopOrder.subtotal}
-        </p>
+
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-sm font-bold text-stone-900 truncate">
+            Subtotal: ₹{shopOrder.subtotal}
+          </p>
+        </div>
+
+        <StatusTimeline status={shopOrder.status} />
       </div>
 
       <div className="mt-4 flex flex-col gap-2">
-        {type === "available" && (
+        {canAccept && (
           <button
             onClick={() => onAction("accept", order._id, shopId)}
             className="w-full bg-stone-900 hover:bg-orange-500 text-white text-sm font-semibold py-3 rounded-xl transition-all cursor-pointer"
@@ -82,6 +182,7 @@ function OrderCard({ order, shopOrder, type, onAction }) {
             Accept Order
           </button>
         )}
+
 
         {type === "my" && shopOrder.status === "preparing" && (
           <button
@@ -164,7 +265,7 @@ function DeliveryBoy() {
             // silent — location update is best-effort
           }
         },
-        () => {},
+        () => { },
         { enableHighAccuracy: true },
       );
     };
@@ -217,8 +318,35 @@ function DeliveryBoy() {
       <Navbar />
 
       <div className="w-full max-w-3xl flex flex-col gap-6 px-4 sm:px-6 pt-8">
+        {/* Delivery tips / help */}
+        <div className="bg-white border border-stone-200 rounded-2xl p-4 shadow-sm">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-xl bg-orange-50 text-orange-500 flex items-center justify-center shrink-0">
+              <MdOutlineHowToReg className="text-xl" />
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-bold text-stone-900">How delivery works</p>
+              <ul className="text-xs text-stone-600 mt-1 list-disc pl-4 space-y-1">
+                <li>Accept → Pick Up & Start</li>
+                <li>Complete delivery using customer OTP</li>
+                <li>Use Call + Navigate buttons for faster delivery</li>
+              </ul>
+            </div>
+
+            <div className="shrink-0">
+              <SmsSupportButton
+                phoneNumber={
+                  import.meta.env.VITE_SUPPORT_PHONE_NUMBER || userData?.mobile || ""
+                }
+                message="Need help with my delivery. Please call me back."
+              />
+            </div>
+          </div>
+        </div>
+
         {/* Header */}
         <div className="flex items-center justify-between gap-4">
+
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-orange-50 flex items-center justify-center shrink-0">
               <FaMotorcycle className="text-orange-500 w-4 h-4" />
@@ -235,11 +363,10 @@ function DeliveryBoy() {
 
           <button
             onClick={handleToggleOnline}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-semibold transition-all cursor-pointer ${
-              userData.isOnline
-                ? "bg-green-100 text-green-700 hover:bg-green-200"
-                : "bg-stone-200 text-stone-600 hover:bg-stone-300"
-            }`}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-semibold transition-all cursor-pointer ${userData.isOnline
+              ? "bg-green-100 text-green-700 hover:bg-green-200"
+              : "bg-stone-200 text-stone-600 hover:bg-stone-300"
+              }`}
           >
             <FaPowerOff size={12} />
             {userData.isOnline ? "Online" : "Offline"}
@@ -281,11 +408,10 @@ function DeliveryBoy() {
             <button
               key={key}
               onClick={() => setActiveTab(key)}
-              className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
-                activeTab === key
-                  ? "bg-stone-900 text-white"
-                  : "text-stone-500 hover:text-stone-800"
-              }`}
+              className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all cursor-pointer ${activeTab === key
+                ? "bg-stone-900 text-white"
+                : "text-stone-500 hover:text-stone-800"
+                }`}
             >
               {label}
             </button>

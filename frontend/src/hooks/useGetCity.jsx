@@ -12,7 +12,7 @@ function useGetCity() {
   const dispatch = useDispatch();
   const { userData } = useSelector((state) => state.user);
   const apiKey = import.meta.env.VITE_GEOAPIFY_API_KEY;
-  console.log("apiKey: ", apiKey);
+
   useEffect(() => {
     navigator.geolocation.getCurrentPosition(async (position) => {
       //   console.log(position);
@@ -21,9 +21,12 @@ function useGetCity() {
 
       dispatch(setLocation({ lat: latitude, lon: longitude }));
 
+      if (!apiKey) return;
+
       const result = await axios.get(
         `https://api.geoapify.com/v1/geocode/reverse?lat=${latitude}&lon=${longitude}&format=json&apiKey=${apiKey}`,
       );
+
       //   console.log(result.data);
 
       dispatch(
@@ -37,11 +40,12 @@ function useGetCity() {
       dispatch(
         setCurrentAddress(
           result?.data?.results[0].address_line2 ||
-            result?.data?.results[0].address_line1,
+          result?.data?.results[0].address_line1,
         ),
       );
 
-      console.log(result?.data?.results[0].address_line2);
+      // console.log(result?.data?.results[0].address_line2);
+
 
       dispatch(setAddress(result?.data?.results[0].address_line2));
     });

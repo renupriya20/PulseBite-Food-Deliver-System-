@@ -84,7 +84,7 @@ function SignIn() {
         {/* Top logo */}
         <div className="relative z-10">
           <span className="text-white text-2xl font-bold tracking-tight">
-            Order<span className="text-orange-100">Karo</span>
+            Pulse<span className="text-orange-100">Bite</span>
           </span>
         </div>
 
@@ -132,7 +132,7 @@ function SignIn() {
           {/* Mobile brand header */}
           <div className="lg:hidden mb-8 text-center">
             <h1 className="text-3xl font-bold tracking-tight text-stone-900">
-              Order<span className="text-orange-500">Karo</span>
+              Pulse<span className="text-orange-500">Bite</span>
             </h1>
             <p className="mt-1 text-sm text-stone-600">
               Good to see you again 👋

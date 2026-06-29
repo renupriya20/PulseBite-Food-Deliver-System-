@@ -107,6 +107,10 @@ export const getOrders = async (req, res, next) => {
         .sort({ createdAt: -1 })
         .populate("shopOrders.shop", "name")
         .populate("shopOrders.owner", "name email mobile")
+        .populate(
+          "shopOrders.assignedDeliveryBoy",
+          "fullName mobile location"
+        )
         .populate("shopOrders.shopOrderItems.item", "name image price");
     }
 
@@ -115,7 +119,7 @@ export const getOrders = async (req, res, next) => {
         .sort({ createdAt: -1 })
         .populate("shopOrders.shop", "name")
         .populate("user", "fullName email mobile")
-        .populate("shopOrders.assignedDeliveryBoy", "fullName mobile")
+        .populate("shopOrders.assignedDeliveryBoy", "fullName mobile location")
         .populate("shopOrders.shopOrderItems.item", "name image price");
 
       // keep only this owner's shopOrders

@@ -40,8 +40,10 @@ function Navbar({ onOwnerOrdersClick }) {
       <header className="w-full h-16 fixed top-0 left-0 z-9999 bg-white border-b border-stone-100 shadow-sm">
         <div className="w-full h-full max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between gap-4">
           {/* Brand */}
-          <h1 className="text-2xl font-bold tracking-tight text-stone-900 shrink-0">
-            Order<span className="text-orange-500">Karo</span>
+          <h1 className="text-2xl font-bold tracking-tight shrink-0">
+            <span className="text-stone-900">
+              Pulse<span className="text-orange-500">Bite</span>
+            </span>
           </h1>
 
           {/* Search bar — desktop only, user only */}
@@ -81,11 +83,10 @@ function Navbar({ onOwnerOrdersClick }) {
             {/* Delivery Boy: Online toggle indicator */}
             {userData.role === "deliveryBoy" && (
               <span
-                className={`hidden md:flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full ${
-                  userData.isOnline
-                    ? "bg-green-100 text-green-700"
-                    : "bg-stone-100 text-stone-500"
-                }`}
+                className={`hidden md:flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full ${userData.isOnline
+                  ? "bg-green-100 text-green-700"
+                  : "bg-stone-100 text-stone-500"
+                  }`}
               >
                 <span
                   className={`w-2 h-2 rounded-full ${userData.isOnline ? "bg-green-500" : "bg-stone-400"}`}
@@ -134,7 +135,7 @@ function Navbar({ onOwnerOrdersClick }) {
 
             {/* User: Cart */}
             {userData.role === "user" && (
-              <button className="relative w-9 h-9 flex items-center justify-center rounded-full bg-orange-50 text-orange-500 hover:bg-orange-100 transition-colors cursor-pointer" onClick={()=> navigate("/cart")}>
+              <button className="relative w-9 h-9 flex items-center justify-center rounded-full bg-orange-50 text-orange-500 hover:bg-orange-100 transition-colors cursor-pointer" onClick={() => navigate("/cart")}>
                 <FiShoppingCart size={17} />
                 {cartItems.length > 0 && (
                   <span className="absolute -top-1 -right-1 w-4 h-4 bg-orange-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
@@ -146,7 +147,10 @@ function Navbar({ onOwnerOrdersClick }) {
 
             {/* User: My Orders — desktop */}
             {userData.role === "user" && (
-              <button className="hidden md:flex items-center gap-1.5 bg-orange-50 text-orange-500 hover:bg-orange-100 text-sm font-medium px-3.5 py-2 rounded-full transition-colors cursor-pointer">
+              <button
+                className="hidden md:flex items-center gap-1.5 bg-orange-50 text-orange-500 hover:bg-orange-100 text-sm font-medium px-3.5 py-2 rounded-full transition-colors cursor-pointer"
+                onClick={() => navigate("/my-orders")}
+              >
                 <TbReceipt2 size={16} />
                 My Orders
               </button>
@@ -193,7 +197,10 @@ function Navbar({ onOwnerOrdersClick }) {
 
           {/* My Orders — mobile, user only */}
           {userData.role === "user" && (
-            <button className="md:hidden text-left text-sm text-stone-600 hover:text-orange-500 font-medium py-1.5 transition-colors cursor-pointer">
+            <button
+              className="md:hidden text-left text-sm text-stone-600 hover:text-orange-500 font-medium py-1.5 transition-colors cursor-pointer"
+              onClick={() => navigate("/my-orders")}
+            >
               My Orders
             </button>
           )}

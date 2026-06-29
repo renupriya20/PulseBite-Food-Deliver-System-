@@ -17,7 +17,15 @@ import webhookRouter from "./src/routes/webhook.route.js";
 const app = express();
 app.use(
   cors({
-    origin: "http://localhost:5173",
+    origin: (origin, cb) => {
+      // Allow requests with no origin (e.g. mobile apps, curl)
+      if (!origin) return cb(null, true);
+
+      const allowedOrigins = ["http://localhost:5173", "http://localhost:5175"];
+      if (allowedOrigins.includes(origin)) return cb(null, true);
+
+      return cb(new Error(`Not allowed by CORS: ${origin}`));
+    },
     credentials: true,
   }),
 );
