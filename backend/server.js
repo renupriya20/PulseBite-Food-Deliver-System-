@@ -2,13 +2,19 @@
 // dns.setServers(['8.8.8.8', '8.8.4.4']);
 // import 'dotenv.config.js';
 
+import http from "http";
 import app from "./app.js";
 import { connectDB } from "./src/config/database.config.js";
 import { PORT } from "./src/config/index.js";
+import { attachSocket } from "./src/socket/index.js";
 
 connectDB()
   .then(() => {
-    app.listen(PORT, (err) => {
+    const httpServer = http.createServer(app);
+    const io = attachSocket(httpServer, { cors: { origin: true } });
+    app.locals.io = io;
+
+    httpServer.listen(PORT, (err) => {
       if (err) {
         console.log("Error starting server:", err);
         process.exit(1);

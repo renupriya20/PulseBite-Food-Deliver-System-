@@ -13,6 +13,8 @@ import { useNavigate } from "react-router-dom";
 import { ORDER_ROUTES } from "../constants/endpoints";
 import axiosInstance from "../lib/axios";
 import { setAddress, setLocation } from "../redux/slices/mapSlice";
+import OrderKaroPulseLoader from "../components/OrderKaroPulseLoader";
+
 
 // ── Must be outside main component ───────────────────────────────
 function RecenterMap({ location }) {
@@ -30,13 +32,12 @@ function Step({ number, label, active, done }) {
   return (
     <div className="flex items-center gap-2">
       <div
-        className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300 ${
-          done
-            ? "bg-orange-500 text-white"
-            : active
-              ? "bg-stone-900 text-white"
-              : "bg-stone-100 text-stone-400"
-        }`}
+        className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300 ${done
+          ? "bg-orange-500 text-white"
+          : active
+            ? "bg-stone-900 text-white"
+            : "bg-stone-100 text-stone-400"
+          }`}
       >
         {done ? "✓" : number}
       </div>
@@ -63,6 +64,8 @@ function Checkout() {
   const [paymentMethod, setPaymentMethod] = useState("cod");
   const [activeStep] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [pageLoading, setPageLoading] = useState(true);
+
 
   const apiKey = import.meta.env.VITE_GEOAPIFY_API_KEY;
   const deliveryFee = totalAmount > 500 ? 0 : 40;
@@ -76,6 +79,13 @@ function Checkout() {
   useEffect(() => {
     if (address) setAddressInput(address);
   }, [address]);
+
+  // Show PulseBite loader briefly while checkout mounts
+  useEffect(() => {
+    const t = setTimeout(() => setPageLoading(false), 600);
+    return () => clearTimeout(t);
+  }, []);
+
 
   const onDragEnd = (e) => {
     const { lat, lng } = e.target._latlng;
@@ -167,8 +177,11 @@ function Checkout() {
   //   rzp.open();
   // };
 
+  if (pageLoading) return <OrderKaroPulseLoader />;
+
   return (
     <div className="min-h-screen w-full bg-stone-50">
+
       {/* ── Top bar ── */}
       <div className="w-full bg-white border-b border-stone-100 px-4 py-3 flex items-center justify-between sticky top-0 z-50">
         <button
@@ -297,11 +310,10 @@ function Checkout() {
             <div className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-3">
               <button
                 onClick={() => setPaymentMethod("cod")}
-                className={`flex items-center gap-3 rounded-xl border-2 p-4 text-left transition-all duration-200 cursor-pointer ${
-                  paymentMethod === "cod"
-                    ? "border-orange-500 bg-orange-50 shadow-sm shadow-orange-100"
-                    : "border-stone-200 hover:border-stone-300 bg-white"
-                }`}
+                className={`flex items-center gap-3 rounded-xl border-2 p-4 text-left transition-all duration-200 cursor-pointer ${paymentMethod === "cod"
+                  ? "border-orange-500 bg-orange-50 shadow-sm shadow-orange-100"
+                  : "border-stone-200 hover:border-stone-300 bg-white"
+                  }`}
               >
                 <span className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center shrink-0">
                   <MdDeliveryDining className="text-green-600 text-xl" />
@@ -323,11 +335,10 @@ function Checkout() {
 
               <button
                 onClick={() => setPaymentMethod("online")}
-                className={`flex items-center gap-3 rounded-xl border-2 p-4 text-left transition-all duration-200 cursor-pointer ${
-                  paymentMethod === "online"
-                    ? "border-orange-500 bg-orange-50 shadow-sm shadow-orange-100"
-                    : "border-stone-200 hover:border-stone-300 bg-white"
-                }`}
+                className={`flex items-center gap-3 rounded-xl border-2 p-4 text-left transition-all duration-200 cursor-pointer ${paymentMethod === "online"
+                  ? "border-orange-500 bg-orange-50 shadow-sm shadow-orange-100"
+                  : "border-stone-200 hover:border-stone-300 bg-white"
+                  }`}
               >
                 <span className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center shrink-0">
                   <FaMobileScreenButton className="text-purple-600 text-lg" />

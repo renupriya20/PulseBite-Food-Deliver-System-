@@ -50,3 +50,14 @@ export const ORDER_ROUTES = {
     `${BACKEND_URL}/api/v1/order/assign/${orderId}/${shopId}/${deliveryBoyId}`,
   ONLINE_DELIVERY_BOYS: `${BACKEND_URL}/api/v1/order/online-delivery-boys`,
 };
+
+export const DELIVERY_ROUTES = {
+  ONBOARDING_DETAILS: `${BACKEND_URL}/api/delivery/onboarding-details`,
+  TOGGLE_STATUS: `${BACKEND_URL}/api/delivery/status`,
+  SOS_ALERT: `${BACKEND_URL}/api/delivery/sos-alert`,
+  ECO_DASHBOARD: `${BACKEND_URL}/api/delivery/eco-dashboard`,
+
+  ACCEPT_ORDER: (orderId) => `${BACKEND_URL}/api/delivery/order/${orderId}/accept`,
+  VERIFY_COMPLETE: (orderId) => `${BACKEND_URL}/api/delivery/order/${orderId}/verify-complete`,
+};
+

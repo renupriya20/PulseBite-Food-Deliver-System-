@@ -37,7 +37,7 @@ function getActiveDelivery(shopOrders) {
 }
 
 export default function LiveDeliveryPopup({ pollMs = 9000 }) {
-  const [loading, setLoading] = useState(false);
+
   const [active, setActive] = useState(null);
   const [errorShown, setErrorShown] = useState(false);
   const [dismissed, setDismissed] = useState(false);

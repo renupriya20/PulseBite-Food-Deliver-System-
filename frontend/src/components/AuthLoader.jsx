@@ -26,7 +26,7 @@ export const AuthLoader = () => (
 
     {/* Brand name */}
     <h1 className="text-2xl font-bold tracking-tight text-stone-900 mb-1">
-      Order<span className="text-orange-500">Karo</span>
+      Pulse<span className="text-orange-500">Bite</span>
     </h1>
     <p className="text-xs text-stone-400 uppercase tracking-[0.2em] font-medium mb-10">
       Fresh · Fast · Reliable

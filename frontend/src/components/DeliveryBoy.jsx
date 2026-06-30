@@ -1,12 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  FaBoxOpen,
-  FaLocationDot,
-  FaMotorcycle,
-  FaPowerOff,
-} from "react-icons/fa6";
+import { useCallback, useEffect, useState } from "react";
+import { FaBoxOpen, FaLocationDot, FaPowerOff } from "react-icons/fa6";
 import { FaPhone, FaRoute, FaSms } from "react-icons/fa";
 import { MdOutlineHowToReg } from "react-icons/md";
+import deliveryBoyLogo from "../assets/scooter.png";
 import { useDispatch, useSelector } from "react-redux";
 import { toast } from "sonner";
 import { ORDER_ROUTES, USER_ROUTES } from "../constants/endpoints";
@@ -66,6 +62,9 @@ function OrderCard({ order, shopOrder, type, onAction }) {
   const shop = shopOrder.shop;
   const shopId = shop?._id || shopOrder.shop;
 
+  // NOTE: keep only variables used in JSX to satisfy eslint.
+
+
   const customerPhone = order?.user?.mobile;
   const customerCallHref = customerPhone
     ? `tel:${String(customerPhone).replace(/[^0-9+]/g, "")}`
@@ -76,13 +75,9 @@ function OrderCard({ order, shopOrder, type, onAction }) {
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addressText)}`
     : null;
 
-  const subtotal = shopOrder.subtotal;
-
-  const status = shopOrder.status;
-
   const canAccept = type === "available";
-  const canStart = type === "my" && status === "preparing";
-  const canComplete = type === "my" && status === "out of delivery";
+  const canStart = type === "my" && shopOrder.status === "preparing";
+  const canComplete = type === "my" && shopOrder.status === "out of delivery";
 
   return (
     <div className="w-full bg-white border border-stone-200 rounded-2xl p-5 shadow-sm hover:shadow-md transition-all">
@@ -134,6 +129,12 @@ function OrderCard({ order, shopOrder, type, onAction }) {
               <p className="text-xs text-stone-400 mt-1">
                 Keep OTP ready for completion
               </p>
+
+              <div className="mt-2 inline-flex items-center px-2.5 py-1 rounded-full bg-amber-100 text-amber-900 border border-amber-200">
+                <span className="text-[11px] font-semibold">
+                  Eco-Bonus Eligible (+15%)
+                </span>
+              </div>
             </div>
 
             <div className="flex items-center gap-2">
@@ -348,8 +349,12 @@ function DeliveryBoy() {
         <div className="flex items-center justify-between gap-4">
 
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-orange-50 flex items-center justify-center shrink-0">
-              <FaMotorcycle className="text-orange-500 w-4 h-4" />
+            <div className="w-10 h-10 rounded-full bg-orange-50 flex items-center justify-center shrink-0 overflow-hidden">
+              <img
+                src={deliveryBoyLogo}
+                alt="Delivery Boy"
+                className="w-6 h-6 object-contain"
+              />
             </div>
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-orange-400">
