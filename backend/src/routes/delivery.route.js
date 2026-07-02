@@ -8,7 +8,13 @@ import {
     sosAlert,
     toggleDeliveryStatus,
     verifyCompleteOrderV2,
+    getEcoLeaderboard,
+    getActiveRequests,
+    getDeliveryBoyProfile,
+    getAvailableOrders
 } from "../controllers/delivery.controller.js";
+
+
 
 const deliveryRouter = Router();
 
@@ -50,12 +56,45 @@ deliveryRouter.put(
     authorizeRoles("deliveryBoy"),
     acceptOrderV2,
 );
+// Accept Order
+deliveryRouter.post(   // ← POST ya PUT dono chal sakta hai, POST better
+    "/accept/:orderId/:shopId",
+    authenticate,
+    authorizeRoles("deliveryBoy"),
+    acceptOrderV2
+);
+// deliveryRouter.post(
+//     "/order/:id/verify-complete",
+//     authenticate,
+//     authorizeRoles("deliveryBoy"),
+//     verifyCompleteOrderV2,
+// );
 
 deliveryRouter.post(
-    "/order/:id/verify-complete",
+    "/verify-complete/:id",
     authenticate,
     authorizeRoles("deliveryBoy"),
     verifyCompleteOrderV2,
+);
+deliveryRouter.get("/leaderboard", getEcoLeaderboard);
+
+deliveryRouter.get(
+    "/active-request",
+    authenticate,
+    authorizeRoles("deliveryBoy"),
+    getActiveRequests
+);
+deliveryRouter.get(
+    "/profile",                    // ← yeh naam ho sakta hai
+    authenticate,
+    authorizeRoles("deliveryBoy"),
+    getDeliveryBoyProfile
+);
+deliveryRouter.get(
+    "/available-orders",
+    authenticate,
+    authorizeRoles("deliveryBoy"),
+    getAvailableOrders
 );
 
 export default deliveryRouter;

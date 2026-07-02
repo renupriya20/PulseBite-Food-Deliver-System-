@@ -50,9 +50,8 @@ app.use("/api/v1/user", userRoutes);
 app.use("/api/v1/shop", shopRoutes);
 app.use("/api/v1/item", itemRoutes);
 app.use("/api/v1/order", orderRoutes);
-app.use("/api/delivery", deliveryRoutes);
+app.use("/api/v1/delivery", deliveryRoutes);
 
 app.use(errorHandler);
-
 
 export default app;

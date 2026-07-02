@@ -33,68 +33,139 @@ const computeEcoBonus = ({ vehicleType }) => {
    Customer places an order. Cart items are grouped
    by shop into order.shopOrders[].
 --------------------------------------------- */
+// export const placeOrder = async (req, res, next) => {
+//     try {
+//         const { cartItems, deliveryAddress, paymentMethod } = req.body;
+
+//         if (!Array.isArray(cartItems) || cartItems.length === 0) {
+//             return next(new ErrorResponse("Cart is empty", 400));
+//         }
+//         if (!deliveryAddress) {
+//             return next(new ErrorResponse("Delivery address is required", 400));
+//         }
+
+//         // Group items by shop
+//         const groupedByShop = {};
+//         for (const cartItem of cartItems) {
+//             const item = await ItemModel.findById(cartItem.item);
+//             if (!item) return next(new ErrorResponse(`Item not found: ${cartItem.item}`, 404));
+
+//             const shopId = String(item.shop);
+//             if (!groupedByShop[shopId]) groupedByShop[shopId] = [];
+
+//             groupedByShop[shopId].push({
+//                 item: item._id,
+//                 name: item.name,
+//                 price: item.price,
+//                 quantity: cartItem.quantity || 1,
+//             });
+//         }
+
+//         const shopOrders = Object.entries(groupedByShop).map(([shopId, items]) => {
+//             const subtotal = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
+//             return {
+//                 shop: shopId,
+//                 items,
+//                 subtotal,
+//                 status: "pending",
+//                 assignedDeliveryBoy: null,
+//                 deliveryOtp: null,
+//                 otpExpires: null,
+//                 deliveredAt: null,
+//             };
+//         });
+
+//         const totalAmount = shopOrders.reduce((sum, so) => sum + so.subtotal, 0);
+
+//         const order = await OrderModel.create({
+//             user: req.user._id,
+//             shopOrders,
+//             deliveryAddress,
+//             paymentMethod: paymentMethod || "COD",
+//             totalAmount,
+//         });
+
+//         return res.status(201).json({
+//             success: true,
+//             message: "Order placed successfully",
+//             order,
+//         });
+//     } catch (error) {
+//         next(error);
+//     }
+// };
+
+
 export const placeOrder = async (req, res, next) => {
     try {
-        const { cartItems, deliveryAddress, paymentMethod } = req.body;
+        const { cartItems, paymentMethod, deliveryAddress, totalAmount } = req.body;
 
-        if (!Array.isArray(cartItems) || cartItems.length === 0) {
-            return next(new ErrorResponse("Cart is empty", 400));
-        }
-        if (!deliveryAddress) {
-            return next(new ErrorResponse("Delivery address is required", 400));
-        }
+        const groupItemsByShop = {};
 
-        // Group items by shop
-        const groupedByShop = {};
-        for (const cartItem of cartItems) {
-            const item = await ItemModel.findById(cartItem.item);
-            if (!item) return next(new ErrorResponse(`Item not found: ${cartItem.item}`, 404));
-
-            const shopId = String(item.shop);
-            if (!groupedByShop[shopId]) groupedByShop[shopId] = [];
-
-            groupedByShop[shopId].push({
-                item: item._id,
-                name: item.name,
-                price: item.price,
-                quantity: cartItem.quantity || 1,
-            });
-        }
-
-        const shopOrders = Object.entries(groupedByShop).map(([shopId, items]) => {
-            const subtotal = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
-            return {
-                shop: shopId,
-                items,
-                subtotal,
-                status: "pending",
-                assignedDeliveryBoy: null,
-                deliveryOtp: null,
-                otpExpires: null,
-                deliveredAt: null,
-            };
+        cartItems.forEach((item) => {
+            const shopId = item.shop;
+            if (!groupItemsByShop[shopId]) {
+                groupItemsByShop[shopId] = [];
+            }
+            groupItemsByShop[shopId].push(item);
         });
 
-        const totalAmount = shopOrders.reduce((sum, so) => sum + so.subtotal, 0);
+        const shopOrders = await Promise.all(
+            Object.keys(groupItemsByShop).map(async (shopId) => {
+                const shop = await ShopModel.findById(shopId).populate("owner");
 
-        const order = await OrderModel.create({
+                if (!shop) {
+                    return next(
+                        new ErrorResponse(`Shop with id ${shopId} not found`, 404),
+                    );
+                }
+
+                const items = groupItemsByShop[shopId];
+                const subtotal = items.reduce(
+                    (sum, item) => sum + Number(item.price) * Number(item.quantity),
+                    0,
+                );
+
+                return {
+                    shop: shop._id,
+                    owner: shop.owner._id,
+                    subtotal,
+                    shopOrderItems: items.map((item) => {
+                        console.log("item: ", item);
+                        return {
+                            item: item.id,
+                            price: item.price,
+                            quantity: item.quantity,
+                            name: item.name,
+                        };
+                    }),
+                };
+            }),
+        );
+
+        const newOrder = await OrderModel.create({
             user: req.user._id,
-            shopOrders,
+            paymentMethod,
             deliveryAddress,
-            paymentMethod: paymentMethod || "COD",
             totalAmount,
+            shopOrders,
         });
+
+        await newOrder.populate(
+            "shopOrders.shopOrderItems.item",
+            "name image price",
+        );
+        await newOrder.populate("shopOrders.shop", "name");
 
         return res.status(201).json({
             success: true,
             message: "Order placed successfully",
-            order,
+            newOrder,
         });
     } catch (error) {
         next(error);
     }
 };
-
 /* ---------------------------------------------
    getOrders
    GET /api/order/orders

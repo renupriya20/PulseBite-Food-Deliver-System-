@@ -30,7 +30,7 @@ const CATEGORIES = [
   },
   {
     category: "Snacks",
-    image: "https://images.unsplash.com/photo-1604508021597-f6fe54c4cd7a?w=300",
+    image: "https://images.unsplash.com/photo-1776178393311-a4618b481064?w=300",
   },
   {
     category: "Main Course",

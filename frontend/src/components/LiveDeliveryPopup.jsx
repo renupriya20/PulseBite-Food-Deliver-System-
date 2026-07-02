@@ -41,6 +41,7 @@ export default function LiveDeliveryPopup({ pollMs = 9000 }) {
   const [active, setActive] = useState(null);
   const [errorShown, setErrorShown] = useState(false);
   const [dismissed, setDismissed] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const fetchOrders = async () => {
     setLoading(true);

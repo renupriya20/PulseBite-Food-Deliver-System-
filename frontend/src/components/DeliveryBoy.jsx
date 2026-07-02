@@ -325,14 +325,14 @@ function DeliveryBoy() {
             <div className="w-10 h-10 rounded-xl bg-orange-50 text-orange-500 flex items-center justify-center shrink-0">
               <MdOutlineHowToReg className="text-xl" />
             </div>
-            <div className="flex-1">
+            {/* <div className="flex-1">
               <p className="text-sm font-bold text-stone-900">How delivery works</p>
               <ul className="text-xs text-stone-600 mt-1 list-disc pl-4 space-y-1">
                 <li>Accept → Pick Up & Start</li>
                 <li>Complete delivery using customer OTP</li>
                 <li>Use Call + Navigate buttons for faster delivery</li>
               </ul>
-            </div>
+            </div> */}
 
             <div className="shrink-0">
               <SmsSupportButton

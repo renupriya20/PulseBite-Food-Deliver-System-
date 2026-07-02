@@ -1,5 +1,5 @@
 import { useSelector } from "react-redux";
-import DeliveryBoy from "../components/DeliveryBoy";
+import DeliveryBoyHub from "../pages/DeliveryBoyHub";
 import OwnerDashboard from "../components/OwnerDashboard";
 import UserDashboard from "../components/UserDashboard";
 import LiveDeliveryPopup from "../components/LiveDeliveryPopup";
@@ -16,7 +16,7 @@ function Home() {
         </>
       )}
       {userData.role == "owner" && <OwnerDashboard />}
-      {userData.role == "deliveryBoy" && <DeliveryBoy />}
+      {userData.role == "deliveryBoy" && <DeliveryBoyHub />}
     </div>
   );
 }

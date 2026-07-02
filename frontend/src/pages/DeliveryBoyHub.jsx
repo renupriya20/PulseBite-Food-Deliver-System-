@@ -1,19 +1,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { toast } from "sonner";
 import { io } from "socket.io-client";
-import { FaCheckCircle, FaExclamationTriangle, FaPhone, FaPowerOff, FaShieldAlt, FaSiren } from "react-icons/fa";
+import {
+    FaCheckCircle,
+    FaExclamationTriangle,
+    FaPhone,
+    FaPowerOff,
+    FaShieldAlt,
+    FaBell,
+    FaRoute
+} from "react-icons/fa";
+import { FaLocationDot, FaBoxOpen } from "react-icons/fa6";
+import { toast } from "sonner";
 import axiosInstance from "../lib/axios";
 import { useSelector, useDispatch } from "react-redux";
 import Navbar from "../components/Navbar";
-import { USER_ROUTES } from "../constants/endpoints";
-import { setUserData } from "../redux/slices/userSlice";
-import deliveryBoyLogo from "../assets/scooter.png";
-
-
 import { BACKEND_URL } from "../constants/endpoints";
-
-
-
 
 const SOCKET_EVENTS = {
     joinCustomerRoom: "delivery:telemetry:join",
@@ -21,125 +22,32 @@ const SOCKET_EVENTS = {
     telemetryWatch: "delivery:telemetry:watch",
 };
 
-const DeliveryButton = ({ onClick, variant, children, disabled }) => {
-    const base =
-        "w-full rounded-xl py-3 text-sm font-semibold transition-all cursor-pointer";
-    const cls =
-        variant === "primary"
-            ? "bg-stone-900 hover:bg-orange-500 text-white"
-            : variant === "danger"
-                ? "bg-red-600 hover:bg-red-700 text-white"
-                : "bg-stone-200 hover:bg-stone-300 text-stone-700";
-
-    return (
-        <button
-            type="button"
-            onClick={onClick}
-            disabled={disabled}
-            className={`${base} ${cls} ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
-        >
-            {children}
-        </button>
-    );
-}
-
-
-const formatCountdown = (ms) => {
-    const s = Math.max(0, Math.ceil(ms / 1000));
-    const mm = Math.floor(s / 60);
-    const ss = s % 60;
-    if (mm > 0) return `${mm}m ${ss}s`;
-    return `${ss}s`;
+const STATUS_COLORS = {
+    pending: "bg-yellow-100 text-yellow-700",
+    preparing: "bg-blue-100 text-blue-700",
+    "out of delivery": "bg-orange-100 text-orange-700",
+    delivered: "bg-green-100 text-green-700",
 };
 
-function VerificationBadge({ isVerified }) {
-    if (isVerified) {
-        return (
-            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 text-emerald-700 px-3 py-1 text-xs font-semibold border border-emerald-100">
-                <FaCheckCircle size={14} /> Verified
-            </span>
-        );
-    }
-
-    return (
-        <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 text-amber-700 px-3 py-1 text-xs font-semibold border border-amber-100">
-            <FaExclamationTriangle size={14} /> Verification Pending
-        </span>
-    );
-}
-
-function EcoImpactCounter({ dashboard }) {
-    if (!dashboard) {
-        return (
-            <div className="bg-white border border-stone-200 rounded-2xl p-4 shadow-sm">
-                <div className="text-[10px] font-semibold uppercase tracking-widest text-stone-400">
-                    Eco Impact Counter
-                </div>
-                <div className="mt-3 h-6 w-3/4 bg-stone-100 rounded animate-pulse" />
-            </div>
-        );
-    }
-
-    return (
-        <div className="bg-white border border-stone-200 rounded-2xl p-4 shadow-sm">
-            <div className="flex items-start justify-between gap-3">
-                <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-widest text-stone-400">
-                        Eco Impact Counter
-                    </p>
-                    <h3 className="text-lg font-bold text-stone-900 mt-1">{dashboard.carbonSavedKg} kg</h3>
-                    <p className="text-xs text-stone-500 mt-1">Carbon saved (est.)</p>
-                </div>
-
-                <div className="text-right">
-                    <p className="text-[10px] font-semibold uppercase tracking-widest text-stone-400">Green Bonus</p>
-                    <h3 className="text-lg font-bold text-emerald-700 mt-1">₹{dashboard.greenBonusEarnings}</h3>
-                    <p className="text-xs text-stone-500 mt-1">Eco-score uplift</p>
-                </div>
-            </div>
-
-            <div className="mt-4 border-t border-stone-100 pt-3 flex items-center justify-between">
-                <p className="text-xs text-stone-500">Total Wallet</p>
-                <p className="text-sm font-bold text-stone-900">₹{dashboard.walletBalance}</p>
-            </div>
-        </div>
-    );
-}
-
-function Timeline({ stage }) {
+function StatusTimeline({ status }) {
     const steps = [
-        { key: "arrived", label: "Arrived at Merchant" },
-        { key: "picked", label: "Order In Hand" },
-        { key: "otp", label: "Secure OTP & Complete" },
+        { key: "pending", label: "Pending", dot: "bg-yellow-500" },
+        { key: "preparing", label: "Preparing", dot: "bg-blue-500" },
+        { key: "out of delivery", label: "Out for delivery", dot: "bg-orange-500" },
+        { key: "delivered", label: "Delivered", dot: "bg-green-500" },
     ];
-
-    const idx = steps.findIndex((s) => s.key === stage);
-
+    const idx = steps.findIndex((s) => s.key === status);
     return (
-        <div className="bg-white border border-stone-200 rounded-2xl p-4 shadow-sm">
-            <div className="text-[10px] font-semibold uppercase tracking-widest text-stone-400">
-                Trip Mode Timeline
-            </div>
-
-            <div className="mt-3 flex flex-col gap-3">
+        <div className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 mt-2">
+            <div className="flex items-center justify-between gap-2">
                 {steps.map((s, i) => {
-                    const done = idx >= 0 && i <= idx;
+                    const done = i <= idx && idx !== -1;
                     return (
-                        <div key={s.key} className="flex items-start gap-3">
-                            <div
-                                className={`w-8 h-8 rounded-xl flex items-center justify-center text-sm font-bold ${done ? "bg-emerald-600 text-white" : "bg-stone-100 text-stone-400"}`}
-                            >
-                                {i + 1}
-                            </div>
-                            <div>
-                                <p className={`text-sm font-semibold ${done ? "text-stone-900" : "text-stone-500"}`}
-                                >
-                                    {s.label}
-                                </p>
-                                <p className={`text-xs ${done ? "text-emerald-700" : "text-stone-400"}`}>
-                                    {done ? "Completed" : "Pending"}
-                                </p>
-                            </div>
+                        <div key={s.key} className="flex flex-col items-center flex-1">
+                            <div className={`w-2.5 h-2.5 rounded-full ${done ? s.dot : "bg-stone-300"}`} />
+                            <p className={`text-[10px] font-semibold mt-1 text-center ${done ? "text-stone-900" : "text-stone-400"}`}>
+                                {s.label}
+                            </p>
                         </div>
                     );
                 })}
@@ -148,359 +56,320 @@ function Timeline({ stage }) {
     );
 }
 
+function OrderCard({ order, shopOrder, type, onAction, countdownMs }) {
+    const [otp, setOtp] = useState("");
+    if (!order || !shopOrder) return null;
+    const shop = shopOrder.shop;
+    const shopId = shop?._id || shopOrder.shop;
+    const addressText = order?.deliveryAddress?.text || "";
+    const formatCountdown = (ms) => {
+        const s = Math.max(0, Math.ceil(ms / 1000));
+        const mm = Math.floor(s / 60);
+        const ss = s % 60;
+        return mm > 0 ? `${mm}m ${ss}s` : `${ss}s`;
+    };
+    return (
+        <div className="w-full bg-white border border-stone-200 rounded-2xl p-5 shadow-sm">
+            <div className="flex items-start justify-between gap-3 mb-4">
+                <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-orange-400 mb-1">
+                        {shop?.name || "Merchant Restaurant"}
+                    </p>
+                    <h3 className="text-sm font-bold text-stone-900">
+                        Order #{order._id?.slice(-6).toUpperCase()}
+                    </h3>
+                </div>
+                <span className={`text-[10px] font-semibold uppercase tracking-wider px-2.5 py-1 rounded-full ${STATUS_COLORS[shopOrder.status] || "bg-stone-100 text-stone-600"}`}>
+                    {shopOrder.status}
+                </span>
+            </div>
+            <div className="space-y-2 mb-4 border-b border-stone-100 pb-3">
+                <div className="flex items-start gap-2 text-sm text-stone-600">
+                    <FaLocationDot className="text-orange-500 mt-0.5 shrink-0" />
+                    <span>{addressText || "No Address Provided"}</span>
+                </div>
+            </div>
+            {type === "available" && (
+                <button
+                    onClick={() => onAction("accept", order._id, shopId)}
+                    className="w-full bg-stone-900 hover:bg-orange-500 text-white text-sm font-semibold py-3 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2"
+                >
+                    Accept Ride {countdownMs > 0 && `• ${formatCountdown(countdownMs)}`}
+                </button>
+            )}
+            {type === "my" && shopOrder.status === "out of delivery" && (
+                <div className="flex flex-col gap-2 mt-2">
+                    <input
+                        type="text"
+                        placeholder="Enter 4-digit Customer OTP"
+                        maxLength={4}
+                        value={otp}
+                        onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
+                        className="w-full border border-stone-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-orange-400"
+                    />
+                    <button
+                        onClick={() => onAction("complete", order._id, shopId, otp)}
+                        disabled={otp.length !== 4}
+                        className="w-full bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-sm font-semibold py-3 rounded-xl transition-all"
+                    >
+                        Complete Delivery
+                    </button>
+                </div>
+            )}
+            <StatusTimeline status={shopOrder.status} />
+        </div>
+    );
+}
+
 export default function DeliveryBoyHub() {
-    const dispatch = useDispatch();
     const { userData } = useSelector((s) => s.user);
-
     const [isLoading, setIsLoading] = useState(true);
-    const [isVerified, setIsVerified] = useState(false);
-    const [socketConnected, setSocketConnected] = useState(false);
-
     const [dashboard, setDashboard] = useState(null);
 
-    // Existing app already has order listing; for this spec, we will adapt using new endpoints later.
-    // For now, reuse existing orders UI expectations but add new timeline + SOS.
+    // Order that IS already assigned to me (accepted, possibly out for delivery)
     const [activeOrder, setActiveOrder] = useState(null);
-    const [otp, setOtp] = useState("");
-    const [stage, setStage] = useState("arrived");
-    const [countdownMs, setCountdownMs] = useState(0);
+
+    // Orders that are NOT assigned to anyone yet — these are what "Accept Ride" should show
+    const [availableOrders, setAvailableOrders] = useState([]);
+
+    const [countdownMs, setCountdownMs] = useState(3000);
 
     const geoWatchIdRef = useRef(null);
     const socketRef = useRef(null);
 
-    const fetchDashboard = useCallback(async () => {
-        try {
-            // backend spec uses /api/delivery/eco-dashboard
-            const res = await axiosInstance.get(`${BACKEND_URL}/api/delivery/eco-dashboard`);
-            setDashboard(res?.data?.dashboard || null);
-        } catch (e) {
-            // silent: dashboard optional
-        }
-    }, []);
+    // Socket connection (for telemetry/SOS)
+    useEffect(() => {
+        if (!userData) return;
 
-    const connectSocket = useCallback(async () => {
-        const backendUrl = BACKEND_URL;
-        const token = localStorage.getItem("token"); // fallback; auth cookie is httpOnly so we use stored token if available
+        // Prevent duplicate connections in React strict-mode/dev
+        if (socketRef.current) return;
 
-        const socket = io(backendUrl, {
+        const socket = io(BACKEND_URL, {
+            withCredentials: true,
             transports: ["websocket"],
-            auth: token ? { token } : {},
         });
 
         socketRef.current = socket;
 
-        socket.on("connect", () => setSocketConnected(true));
-        socket.on("disconnect", () => setSocketConnected(false));
+        socket.on("connect", () => {
+            socket.emit(SOCKET_EVENTS.joinAdminRoom, {});
+        });
 
-        // join admin room for SOS
-        socket.emit(SOCKET_EVENTS.joinAdminRoom);
+        socket.on("connect_error", (err) => {
+            console.error("Socket connect_error:", err?.message || err);
+        });
 
         return () => {
-            socket.removeAllListeners();
             socket.disconnect();
+            socketRef.current = null;
         };
+    }, [userData]);
+
+    const fetchDashboard = useCallback(async () => {
+        try {
+            const res = await axiosInstance.get(`${BACKEND_URL}/api/v1/delivery/eco-dashboard`);
+            setDashboard(res?.data?.dashboard || null);
+        } catch (e) {
+            console.error(e);
+        }
     }, []);
+
+    // Fetches the order that's ALREADY mine (assigned to me)
+    const fetchActiveOrder = useCallback(async () => {
+        try {
+            const res = await axiosInstance.get(`${BACKEND_URL}/api/v1/delivery/active-request`);
+
+            if (res.data?.success) {
+                if (res.data.order && res.data.shopOrder) {
+                    setActiveOrder({
+                        order: res.data.order,
+                        shopOrder: res.data.shopOrder,
+                    });
+                } else {
+                    setActiveOrder(null);
+                }
+            }
+        } catch (e) {
+            console.error("Failed to fetch active order:", e);
+            setActiveOrder(null);
+        }
+    }, []);
+
+    // Fetches orders that are NOT assigned to anyone yet (genuinely available to accept)
+    const fetchAvailableOrders = useCallback(async () => {
+        try {
+            const res = await axiosInstance.get(`${BACKEND_URL}/api/v1/delivery/available-orders`);
+            if (res.data?.success) {
+                setAvailableOrders(res.data.orders || []);
+            }
+        } catch (e) {
+            console.error("Failed to fetch available orders:", e);
+            setAvailableOrders([]);
+        }
+    }, []);
+
+    const startGeoWatch = useCallback(() => {
+        if (!navigator.geolocation) return;
+        geoWatchIdRef.current = navigator.geolocation.watchPosition(
+            (position) => {
+                const { latitude, longitude } = position.coords;
+                if (socketRef.current?.connected) {
+                    socketRef.current.emit(SOCKET_EVENTS.telemetryWatch, {
+                        coordinates: [longitude, latitude],
+                    });
+                }
+            },
+            (err) => console.error(err),
+            {
+                enableHighAccuracy: false,
+                timeout: 30000,
+            },
+        );
+    }, []);
+
+    const handleOrderAction = async (actionType, orderId, shopId, otp = "") => {
+        try {
+            if (actionType === "accept") {
+                const res = await axiosInstance.post(`${BACKEND_URL}/api/v1/delivery/accept/${orderId}/${shopId}`);
+
+                if (res.data.success) {
+                    toast.success("Order accepted successfully!");
+
+                    // TESTING helper: backend acceptOrderV2 me otpForTesting bhejta hai (if present)
+                    const otpForTesting = res?.data?.otpForTesting;
+                    if (otpForTesting) {
+                        toast.message(`Testing OTP: ${otpForTesting}`);
+                    }
+
+                    await fetchActiveOrder();
+                    await fetchAvailableOrders();
+                    fetchDashboard();
+                }
+            } else if (actionType === "complete") {
+                const res = await axiosInstance.post(`${BACKEND_URL}/api/v1/delivery/verify-complete/${orderId}`, {
+                    otp: otp,
+                    shopId: shopId,
+                });
+
+                if (res?.data?.otpForTesting) {
+                    toast.message(`New Testing OTP: ${res.data.otpForTesting}`);
+                }
+
+                if (res.data.success) {
+                    toast.success("Delivery completed successfully!");
+                    setActiveOrder(null);
+                    fetchDashboard();
+                    fetchAvailableOrders();
+                }
+            }
+        } catch (error) {
+            toast.error(error.response?.data?.message || "Action failed");
+        }
+    };
+
+    const handleSOSEmergency = async () => {
+        try {
+            const res = await axiosInstance.post(`${BACKEND_URL}/api/v1/delivery/sos-alert`);
+            if (res.data.success) {
+                toast.error("SOS Alert broadcasted to Admin panel!");
+            }
+        } catch (e) {
+            toast.error("Failed to trigger SOS");
+        }
+    };
 
     useEffect(() => {
         setIsLoading(false);
-    }, []);
+        fetchActiveOrder();
+        fetchAvailableOrders();
+        startGeoWatch();
+        return () => {
+            if (geoWatchIdRef.current) navigator.geolocation.clearWatch(geoWatchIdRef.current);
+        };
+    }, [fetchActiveOrder, fetchAvailableOrders, startGeoWatch]);
 
     useEffect(() => {
         if (!userData) return;
-        setIsVerified(!!userData?.isVerified); // may be absent in current app; UI will still work
         fetchDashboard();
     }, [userData, fetchDashboard]);
 
     useEffect(() => {
-        if (!socketRef.current) connectSocket();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
-
-    const startGeoWatch = useCallback((activeOrderId) => {
-        if (!navigator?.geolocation) {
-            toast.error("Geolocation not supported");
-            return;
-        }
-
-        if (geoWatchIdRef.current != null) return;
-
-        geoWatchIdRef.current = navigator.geolocation.watchPosition(
-            (pos) => {
-                const { latitude, longitude } = pos.coords;
-
-                if (socketRef.current?.connected && activeOrderId) {
-                    socketRef.current.emit(SOCKET_EVENTS.telemetryWatch, {
-                        deliveryBoyId: userData?._id,
-                        activeOrderId,
-                        coordinates: { latitude, longitude },
-                    });
-                }
-            },
-            (err) => {
-                // best-effort
-            },
-            {
-                enableHighAccuracy: true,
-                maximumAge: 0,
-                timeout: 10000,
-            },
-        );
-    }, [toast, userData?._id]);
-
-    const stopGeoWatch = useCallback(() => {
-        if (geoWatchIdRef.current != null && navigator?.geolocation) {
-            navigator.geolocation.clearWatch(geoWatchIdRef.current);
-        }
-        geoWatchIdRef.current = null;
-    }, []);
-
-    // SOS button
-    const handleSOS = useCallback(async () => {
-        if (!navigator?.geolocation) {
-            alert("SOS: Geolocation not supported on this device.");
-            return;
-        }
-
-        navigator.geolocation.getCurrentPosition(
-            async (pos) => {
-                const { latitude, longitude } = pos.coords;
-
-                alert(`SOS Emergency!\nLat: ${latitude}\nLng: ${longitude}`);
-
-                try {
-                    await axiosInstance.post(`${BACKEND_URL}/api/delivery/sos-alert`, {
-                        orderId: activeOrder?.activeOrderId || activeOrder?._id || null,
-                        latitude,
-                        longitude,
-                        reason: "SOS Emergency",
-                    });
-                } catch (e) {
-                    // even if REST fails, socket room will still be able to alert admin from deliveryBoy controller if connected.
-                    toast.error(e?.response?.data?.message || "Failed to send SOS");
-                }
-            },
-            () => {
-                alert("SOS: Unable to access location.");
-            },
-            { enableHighAccuracy: true },
-        );
-    }, [activeOrder]);
-
-    const handleGoOnline = async () => {
-        try {
-            // legacy toggle for isOnline. verification gating is implemented in backend delivery/status in spec.
-            const res = await axiosInstance.patch(USER_ROUTES.TOGGLE_ONLINE);
-            dispatch(setUserData(res.data.user));
-            toast.success(res.data.message);
-        } catch (e) {
-            toast.error(e?.response?.data?.message || "Failed to update status");
-        }
-    };
-
-    const tripStage = useMemo(() => {
-        // Map existing order states to spec timeline.
-        const s = activeOrder?.status;
-        if (s === "preparing") return "arrived";
-        if (s === "out of delivery") return "otp";
-        return stage;
-    }, [activeOrder, stage]);
-
-    const onOtpChange = (v) => {
-        const clean = String(v).replace(/\D/g, "").slice(0, 4);
-        setOtp(clean);
-    };
-
-    const handleAcceptRide = () => {
-        // This screen is spec-driven, but your current backend still uses /api/v1/order/accept etc in frontend.
-        // Proper wiring will be done in next iteration.
-        toast.message("Accept Ride UI placeholder — wire to /api/delivery/order/:id/accept");
-        setCountdownMs(12 * 60 * 1000);
-        setStage("picked");
-    };
-
-    useEffect(() => {
-        if (!countdownMs) return;
-        const id = setInterval(() => {
-            setCountdownMs((ms) => (ms > 0 ? ms - 1000 : 0));
+        if (countdownMs <= 0) return;
+        const timer = setInterval(() => {
+            setCountdownMs((prev) => prev - 1000);
         }, 1000);
-        return () => clearInterval(id);
+        return () => clearInterval(timer);
     }, [countdownMs]);
 
     return (
-        <div className="w-full min-h-screen bg-stone-50 flex flex-col items-center pb-16">
+        <div className="min-h-screen bg-stone-50 pb-10">
             <Navbar />
-
-            <div className="w-full max-w-3xl flex flex-col gap-4 px-4 sm:px-6 pt-6">
-                {/* Header */}
-                <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-orange-50 flex items-center justify-center shrink-0 overflow-hidden">
-                            <img
-                                src={deliveryBoyLogo}
-                                alt="Delivery Boy"
-                                className="w-6 h-6 object-contain"
-                            />
-                        </div>
-                        <div>
-                            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-stone-800">
-                                <span className="font-extrabold text-stone-900">Pulse</span>
-                                <span className="font-extrabold text-orange-500">Bite</span>
-                                <span className="text-stone-400 font-semibold"> Driver Hub</span>
-                            </p>
-                            <div className="mt-1 flex items-center gap-2">
-                                <VerificationBadge isVerified={isVerified} />
-                            </div>
-                        </div>
+            <div className="max-w-md mx-auto px-4 mt-6 space-y-4">
+                <div className="bg-white border border-stone-200 rounded-2xl p-4 shadow-sm flex items-center justify-between">
+                    <div>
+                        <p className="text-xs text-stone-500">Vehicle Type</p>
+                        <h4 className="text-sm font-bold text-stone-900">{userData?.vehicleType || "EV Scooter"}</h4>
                     </div>
-
-                    <div className="flex flex-col items-end gap-2">
-                        <button
-                            onClick={handleGoOnline}
-                            className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-semibold transition-all cursor-pointer ${userData?.isOnline
-                                ? "bg-green-100 text-green-700 hover:bg-green-200"
-                                : "bg-stone-200 text-stone-600 hover:bg-stone-300"}`}
-                        >
-                            <FaPowerOff size={12} />
-                            {userData?.isOnline ? "Go Offline" : "Go Online"}
-                        </button>
-                        {socketConnected ? (
-                            <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-full px-3 py-1">Realtime ON</span>
-                        ) : (
-                            <span className="text-[10px] font-semibold text-stone-500 bg-stone-100 border border-stone-200 rounded-full px-3 py-1">Realtime OFF</span>
-                        )}
+                    <div className="text-right">
+                        <p className="text-xs text-stone-500 mb-1">Status</p>
+                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 text-emerald-700 px-3 py-1 text-xs font-semibold">
+                            Online
+                        </span>
                     </div>
                 </div>
 
-                <EcoImpactCounter dashboard={dashboard} />
-
-                {/* Eco-friendly widget */}
-                <div className="bg-emerald-50 border border-emerald-100 text-emerald-900 rounded-2xl px-4 py-3 shadow-sm">
-                    <div className="flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-3">
-                            <span className="text-lg">🌱</span>
-                            <div className="leading-tight">
-                                <p className="text-sm font-semibold">Vehicle: EV Scooter</p>
-                                <p className="text-xs text-emerald-800">
-                                    Carbon Saved: <span className="font-bold">4.2 kg</span>
-                                </p>
-                            </div>
-                        </div>
+                <div className="bg-white border border-stone-200 rounded-2xl p-4 shadow-sm space-y-3">
+                    <div>
+                        <h4 className="text-sm font-bold text-stone-900 flex items-center gap-1">
+                            <FaShieldAlt className="text-red-600" /> SOS Emergency
+                        </h4>
+                        <p className="text-xs text-stone-500">Broadcast instant coordinates to admin panel</p>
                     </div>
+                    <button
+                        onClick={handleSOSEmergency}
+                        className="w-full bg-red-600 hover:bg-red-700 text-white text-sm font-bold py-3 rounded-xl transition-all"
+                    >
+                        🚨 SOS Emergency
+                    </button>
                 </div>
 
-                {/* Safety */}
-                <div className="bg-white border border-stone-200 rounded-2xl p-4 shadow-sm">
-                    <div className="flex items-start justify-between gap-3">
-                        <div>
-                            <p className="text-[10px] font-semibold uppercase tracking-widest text-stone-400">Safety Feature</p>
-                            <p className="text-sm font-bold text-stone-900 mt-1 flex items-center gap-2">
-                                <FaShieldAlt className="text-emerald-700" /> SOS Emergency
-                            </p>
-                            <p className="text-xs text-stone-500 mt-1">Broadcast instant coordinates to admin panel</p>
-                        </div>
-                    </div>
-
-                    <div className="mt-3">
-                        <DeliveryButton variant="danger" onClick={handleSOS}>
-                            <span className="inline-flex items-center justify-center gap-2">
-                                <FaSiren /> SOS Emergency
-                            </span>
-                        </DeliveryButton>
-                    </div>
-                </div>
-
-                {/* SOS FAB (fixed bottom-right, above the floating chat icon area) */}
-                <button
-                    type="button"
-                    onClick={() => {
-                        if (!navigator?.geolocation) {
-                            alert("Emergency SOS broadcasted with live GPS coordinates to Admin Panel!");
-                            return;
-                        }
-
-                        navigator.geolocation.getCurrentPosition(
-                            () => {
-                                alert("Emergency SOS broadcasted with live GPS coordinates to Admin Panel!");
-                            },
-                            () => {
-                                alert("Emergency SOS broadcasted with live GPS coordinates to Admin Panel!");
-                            },
-                            { enableHighAccuracy: true },
-                        );
-                    }}
-                    className="fixed right-5 bottom-16 z-50 w-16 h-16 rounded-full bg-red-600 hover:bg-red-700 text-white shadow-lg flex items-center justify-center animate-pulse transition-all"
-                    aria-label="Emergency SOS"
-                    title="Emergency SOS"
-                >
-                    <span className="text-lg font-bold">🚨</span>
-                </button>
-
-                {/* Active Request Card */}
-                <div className="bg-white border border-stone-200 rounded-2xl p-4 shadow-sm">
-                    <p className="text-[10px] font-semibold uppercase tracking-widest text-stone-400">Active Request</p>
-
-                    <div className="mt-3 flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                            <p className="text-sm font-bold text-stone-900 truncate">Pickup → Drop-off</p>
-                            <p className="text-xs text-stone-500 mt-1">Order details will appear when accepted</p>
-                        </div>
-                        <div className="text-right">
-                            <p className="text-[10px] font-semibold uppercase tracking-widest text-stone-400">Earnings</p>
-                            <p className="text-sm font-bold text-emerald-700">₹—</p>
-                        </div>
-                    </div>
-
-                    <div className="mt-4 flex flex-col gap-2">
-                        <DeliveryButton variant="primary" onClick={handleAcceptRide} disabled={!userData?.isOnline}>
-                            Accept Ride {countdownMs > 0 ? `• ${formatCountdown(countdownMs)}` : ""}
-                        </DeliveryButton>
-                    </div>
-                </div>
-
-                {/* Timeline */}
-                <Timeline stage={tripStage} />
-
-                {/* OTP Complete (when on delivery) */}
-                <div className="bg-white border border-stone-200 rounded-2xl p-4 shadow-sm">
-                    <p className="text-[10px] font-semibold uppercase tracking-widest text-stone-400">Secure OTP</p>
-                    <p className="text-xs text-stone-500 mt-1">Enter the 4-digit OTP from customer to complete delivery</p>
-
-                    <div className="mt-3 flex flex-col gap-2">
-                        <input
-                            value={otp}
-                            onChange={(e) => onOtpChange(e.target.value)}
-                            inputMode="numeric"
-                            placeholder="4-digit OTP"
-                            maxLength={4}
-                            className="w-full border border-stone-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-orange-400"
+                {/* MY ACTIVE ORDER (already accepted by me) */}
+                {activeOrder && (
+                    <div className="space-y-2">
+                        <p className="text-[10px] font-semibold uppercase tracking-widest text-stone-400">My Active Delivery</p>
+                        <OrderCard
+                            order={activeOrder.order}
+                            shopOrder={activeOrder.shopOrder}
+                            type="my"
+                            onAction={handleOrderAction}
+                            countdownMs={countdownMs}
                         />
-
-                        <DeliveryButton
-                            variant="primary"
-                            disabled={otp.length !== 4}
-                            onClick={() => toast.message("Complete Delivery wiring pending — call /api/delivery/order/:id/verify-complete")}
-                        >
-                            Complete
-                        </DeliveryButton>
                     </div>
-                </div>
+                )}
 
-                {/* Quick actions placeholders */}
-                {activeOrder?.user?.mobile && (
-                    <div className="bg-white border border-stone-200 rounded-2xl p-4 shadow-sm">
-                        <p className="text-[10px] font-semibold uppercase tracking-widest text-stone-400">Need Help?</p>
-                        <div className="mt-3 flex gap-2">
-                            <a
-                                href={`tel:${String(activeOrder.user.mobile).replace(/[^0-9+]/g, "")}`}
-                                className="flex-1 text-center px-4 py-3 rounded-xl bg-stone-200 hover:bg-stone-300 text-sm font-semibold text-stone-700"
-                            >
-                                <FaPhone className="inline-block mr-2" /> Call Customer
-                            </a>
-                        </div>
+                {/* AVAILABLE ORDERS (unassigned, waiting for someone to accept) */}
+                {!activeOrder && (
+                    <div className="space-y-2">
+                        <p className="text-[10px] font-semibold uppercase tracking-widest text-stone-400">Available Orders</p>
+                        {availableOrders.length > 0 ? (
+                            availableOrders.map(({ order, shopOrder }) => (
+                                <OrderCard
+                                    key={`${order._id}-${shopOrder.shop?._id || shopOrder.shop}`}
+                                    order={order}
+                                    shopOrder={shopOrder}
+                                    type="available"
+                                    onAction={handleOrderAction}
+                                    countdownMs={countdownMs}
+                                />
+                            ))
+                        ) : (
+                            <div className="bg-white border border-stone-200 rounded-2xl p-6 text-center text-stone-400 text-sm">
+                                No available orders right now.
+                            </div>
+                        )}
                     </div>
                 )}
             </div>
         </div>
     );
 }
-

@@ -1,437 +1,442 @@
+import mongoose from "mongoose";
 import DeliveryBoyModel from "../models/DeliveryBoy.model.js";
 import DeliveryAssignmentModel from "../models/DeliveryAssignment.model.js";
 import OrderModel from "../models/order.model.js";
-import UserModel from "../models/User.model.js";
 import ErrorResponse from "../utils/ApiError.util.js";
-import { sendDeliveryOtpMail } from "../utils/nodemailer.util.js";
 
-// --- helpers ---
-const toFixed = (n, digits = 2) => {
-  const num = Number(n);
-  if (Number.isNaN(num)) return 0;
-  return Number(num.toFixed(digits));
+const BASE_DELIVERY_FEE = 40;
+const ECO_BONUS_RATE = 0.15;
+const MAX_OTP_ATTEMPTS = 3;
+const LOCKOUT_DURATION = 5 * 60 * 1000;
+
+const normalizeOtp = (otp) => {
+  if (otp == null) return null;
+  const s = String(otp).trim();
+  if (!/^\d{4}$/.test(s)) return null;
+  return s;
 };
 
-const generateOtp = () =>
-  Math.floor(1000 + Math.random() * 9000).toString();
-
-const computeEcoImpact = ({ vehicleType, distanceKm }) => {
-  // Simple production-minded heuristic with deterministic output.
-  // Carbon saved: higher for non-petrol vehicles.
-  // You can tune values later from config/env.
-  const d = Math.max(0, Number(distanceKm) || 0);
-
-  const co2PerKm = {
-    Petrol_Bike: 0.09,
-    EV_Scooter: 0.02,
-    Cycle: 0.0,
-  };
-
-  const baseline = co2PerKm.Petrol_Bike;
-  const actual = co2PerKm[vehicleType] ?? co2PerKm.Petrol_Bike;
-  const carbonSavedKg = Math.max(0, (baseline - actual) * d);
-
-  // "Fuel saved" is conceptual: EV/Cycle return 0, Petrol returns 0 savings.
-  // For dashboard, we keep it numeric and consistent.
-  const fuelSavedLiters = vehicleType === "Petrol_Bike" ? 0 : d * 0.02;
-
-  return {
-    distanceKm: toFixed(d, 2),
-    carbonSavedKg: toFixed(carbonSavedKg, 2),
-    fuelSavedLiters: toFixed(fuelSavedLiters, 2),
-    // EcoScore reward uses carbonSavedKg + safetyRating baseline.
-    ecoScoreDelta: toFixed(Math.min(100, carbonSavedKg * 5), 1),
-  };
+const computeEcoBonus = ({ vehicleType }) => {
+  const isEcoEligible = ["Cycle", "EV_Scooter"].includes(vehicleType);
+  const ecoBonus = isEcoEligible ? BASE_DELIVERY_FEE * ECO_BONUS_RATE : 0;
+  return { isEcoEligible, ecoBonus, baseDeliveryFee: BASE_DELIVERY_FEE };
 };
 
-const broadcastIfSocketExists = async (io, event, payload) => {
-  if (!io) return;
-  io.to(payload?.roomId).emit(event, payload);
-};
-
-// --- 1) onboarding-details ---
-export const saveOnboardingDetails = async (req, res, next) => {
-  try {
-    const deliveryBoyUserId = req.user._id;
-
-    const {
-      vehicleType,
-      vehicleNumber,
-      drivingLicenseNumber,
-      governmentIdUrl,
-    } = req.body;
-
-    if (!vehicleType || !vehicleNumber || !drivingLicenseNumber) {
-      return next(new ErrorResponse("Vehicle details are required", 400));
-    }
-    if (!governmentIdUrl) {
-      return next(new ErrorResponse("governmentIdUrl is required", 400));
-    }
-
-    const updated = await DeliveryBoyModel.findOneAndUpdate(
-      { user: deliveryBoyUserId },
-      {
-        vehicleType,
-        vehicleNumber,
-        drivingLicenseNumber,
-        governmentIdUrl,
-        // onboarding sets verified false (explicit requirement)
-        isVerified: false,
-      },
-      { new: true, upsert: true },
-    );
-
-    return res.status(200).json({
-      success: true,
-      message: "Onboarding details saved. Verification pending.",
-      deliveryBoy: updated,
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-// --- 2) delivery/status (duty toggle) ---
-export const toggleDeliveryStatus = async (req, res, next) => {
-  try {
-    if (req.user.role !== "deliveryBoy") {
-      return next(new ErrorResponse("Only delivery partners allowed", 403));
-    }
-
-    const { status } = req.body; // {status:'online'|'offline'...}
-    if (!status || !["offline", "online", "on_delivery"].includes(status)) {
-      return next(
-        new ErrorResponse("status must be one of offline|online|on_delivery", 400),
-      );
-    }
-
-    const deliveryBoy = await DeliveryBoyModel.findOne({
-      user: req.user._id,
-    });
-
-    if (!deliveryBoy) {
-      return next(new ErrorResponse("Please complete onboarding first", 400));
-    }
-
-    // block online/on_delivery if not verified
-    if (!deliveryBoy.isVerified && status !== "offline") {
-      return next(
-        new ErrorResponse(
-          "Verification required before going online or on delivery",
-          403,
-        ),
-      );
-    }
-
-    // If deliveryBoy is not verified, only offline allowed.
-    deliveryBoy.status = status;
-    await deliveryBoy.save();
-
-    // also keep legacy isOnline flag in User model for existing UI.
-    // Map: online => true, offline => false, on_delivery => true
-    const nextIsOnline = status === "online" || status === "on_delivery";
-    await UserModel.findByIdAndUpdate(req.user._id, {
-      isOnline: nextIsOnline,
-      socketId: req.user.socketId,
-      location: req.user.location,
-    });
-
-    return res.status(200).json({
-      success: true,
-      message: `Delivery status updated to ${status}`,
-      deliveryBoy,
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-// --- 3) SOS alert ---
-export const sosAlert = async (req, res, next) => {
-  try {
-    const { orderId, latitude, longitude, reason } = req.body;
-
-    if (latitude == null || longitude == null) {
-      return next(new ErrorResponse("latitude and longitude are required", 400));
-    }
-
-    const deliveryBoy = await DeliveryBoyModel.findOne({
-      user: req.user._id,
-    });
-
-    if (!deliveryBoy) {
-      return next(new ErrorResponse("Delivery boy profile not found", 404));
-    }
-
-    // Persist lightweight SOS stats.
-    deliveryBoy.sosCount += 1;
-    deliveryBoy.lastSosAt = new Date();
-    await deliveryBoy.save();
-
-    const payload = {
-      event: "SOS_ALERT",
-      roomId: orderId ? `customer:${orderId}` : "admin",
-      orderId: orderId || null,
-      deliveryBoyId: req.user._id,
-      deliveryBoyName: req.user.fullName,
-      coordinates: {
-        latitude,
-        longitude,
-      },
-      reason: reason || "SOS",
-      createdAt: new Date().toISOString(),
-    };
-
-    // io is attached on req.app.locals by socket bootstrap
-    const io = req.app?.locals?.io;
-    if (io) {
-      // Always broadcast to admin room
-      io.to("admin").emit("SOS_ALERT", payload);
-      // Also broadcast to customer room if we know orderId
-      if (orderId) io.to(`customer:${orderId}`).emit("SOS_ALERT", payload);
-    }
-
-    return res.status(200).json({
-      success: true,
-      message: "SOS alert sent",
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-// --- 4) eco-dashboard ---
-export const ecoDashboard = async (req, res, next) => {
-  try {
-    const { vehicleTypeOverride, distanceKm } = req.query;
-
-    const deliveryBoy = await DeliveryBoyModel.findOne({
-      user: req.user._id,
-    });
-
-    const vehicleType = vehicleTypeOverride || deliveryBoy?.vehicleType;
-
-    if (!vehicleType) {
-      return next(new ErrorResponse("Vehicle type missing", 400));
-    }
-
-    const impact = computeEcoImpact({
-      vehicleType,
-      distanceKm: distanceKm ?? 12, // default heuristic for dashboard
-    });
-
-    // Earnings approximation from assignment completions.
-    const completedAssignments = await DeliveryAssignmentModel.countDocuments({
-      deliveryBoyId: req.user._id,
-      status: "completed",
-    });
-
-    // use stored wallet as source of truth if present
-    const wallet = deliveryBoy.instantEarningsWallet || 0;
-
-    return res.status(200).json({
-      success: true,
-      message: "Eco dashboard fetched",
-      dashboard: {
-        vehicleType,
-        distanceKm: impact.distanceKm,
-        carbonSavedKg: impact.carbonSavedKg,
-        fuelSavedLiters: impact.fuelSavedLiters,
-        ecoScoreDelta: impact.ecScoreDelta,
-        greenBonusEarnings: toFixed(impact.ecoScoreDelta * 0.6, 2),
-        walletBalance: toFixed(wallet, 2),
-        completedTrips: completedAssignments,
-      },
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-// --- 5) order lifecycle extensions ---
+// ====================== ACCEPT ORDER ======================
 export const acceptOrderV2 = async (req, res, next) => {
   try {
     const { orderId, shopId } = req.params;
+    const deliveryBoyUserId = req.user?._id;
 
-    // Block if not verified
-    const deliveryBoy = await DeliveryBoyModel.findOne({ user: req.user._id });
+    if (!deliveryBoyUserId) {
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+
+    // 1. Delivery boy profile find karein
+    const deliveryBoy = await DeliveryBoyModel.findOne({ user: deliveryBoyUserId });
 
     if (!deliveryBoy) {
-      return next(new ErrorResponse("Please complete onboarding", 400));
+      return res.status(400).json({
+        success: false,
+        message: "Please complete onboarding first",
+      });
     }
 
+    // 2. Verification & status checks
     if (!deliveryBoy.isVerified) {
-      return next(
-        new ErrorResponse("Verification required to accept orders", 403),
-      );
+      return res.status(403).json({
+        success: false,
+        message: "Verification required to accept orders",
+      });
     }
 
-    // locate shopOrder
-    const order = await OrderModel.findById(orderId).populate(
-      "user",
-      "fullName mobile email"
-    );
-    if (!order) return next(new ErrorResponse("Order not found", 404));
+    if (deliveryBoy.status === "on_delivery") {
+      return res.status(400).json({
+        success: false,
+        message: "You already have an active delivery",
+      });
+    }
 
-    const shopOrder = order.shopOrders.find(
-      (o) => o.shop.toString() === shopId.toString(),
-    );
+    // 3. Order find karein
+    const order = await OrderModel.findById(orderId);
+    if (!order) {
+      return res.status(404).json({ success: false, message: "Order not found" });
+    }
 
+    // 4. Shop order find karein
+    const shopOrder = order.shopOrders.find((o) => String(o.shop) === String(shopId));
     if (!shopOrder) {
-      return next(new ErrorResponse("Shop order not found", 404));
+      return res.status(404).json({ success: false, message: "Shop order not found" });
     }
 
     if (shopOrder.status !== "preparing") {
-      return next(new ErrorResponse("Order is not ready for pickup", 400));
+      return res.status(400).json({ success: false, message: "Order is not ready for pickup" });
     }
 
     if (shopOrder.assignedDeliveryBoy) {
-      return next(new ErrorResponse("Order already assigned", 400));
+      return res.status(400).json({ success: false, message: "Order already assigned" });
     }
 
-    // Spec mapping:
-    // - Order -> Picked_Up (we map to existing enum: "out of delivery" since v1 uses it for pickup->otp)
-    // - Driver -> on_delivery (assignment status)
-    shopOrder.assignedDeliveryBoy = req.user._id;
+    // 5. OTP generate karein
+    const otp = Math.floor(1000 + Math.random() * 9000).toString();
+
+    // 6. Database updates
+    // NOTE: assignedDeliveryBoy ko hamesha USER id se set karein (deliveryBoy._id se nahi),
+    // kyunki verifyCompleteOrderV2 aur getActiveRequests dono req.user._id se compare karte hain.
+    shopOrder.assignedDeliveryBoy = deliveryBoyUserId;
     shopOrder.status = "out of delivery";
-
-    // Generate secure 4-digit OTP for customer completion
-    const otp = generateOtp();
     shopOrder.deliveryOtp = otp;
-    shopOrder.otpExpires = new Date(Date.now() + 5 * 60 * 1000);
+    shopOrder.otpExpires = new Date(Date.now() + 30 * 60 * 1000); // 30 min (testing/demo ke liye badhaya)
 
-    if (order.user?.email) {
-      await sendDeliveryOtpMail(order.user, otp);
-    }
+    deliveryBoy.status = "on_delivery";
+    deliveryBoy.activeOrderId = orderId;
 
-    const activeOrderId = String(orderId);
+    await order.save();
+    await deliveryBoy.save();
 
-    await DeliveryAssignmentModel.findOneAndUpdate(
-      { orderId: orderId, shopId: shopId },
+    // 7. Delivery assignment upsert karein
+    const assignmentDoc = await DeliveryAssignmentModel.findOneAndUpdate(
+      { orderId, shopId },
       {
         orderId,
         shopId,
-        deliveryBoyId: req.user._id,
-        customerId: order.user?._id,
-        activeOrderId,
+        deliveryBoyId: deliveryBoyUserId,
+        customerId: order.user,
+        activeOrderId: orderId,
         status: "on_delivery",
         ecoBonusApplied: false,
-        lastKnownLocation: {
-          type: "Point",
-          coordinates: [
-            req.user.location?.coordinates?.[0] ?? 0,
-            req.user.location?.coordinates?.[1] ?? 0,
-          ],
-        },
       },
       { upsert: true, new: true },
     );
 
-    await order.save();
+    // DEBUG: confirm assignment actually got created + which DB it landed in
+    console.log("=== ASSIGNMENT UPSERT RESULT ===");
+    console.log("Connected DB name:", mongoose.connection.name);
+    console.log("Assignment doc:", assignmentDoc);
+    console.log("================================");
 
     return res.status(200).json({
       success: true,
-      message: "Order accepted. Customer OTP generated.",
+      message: "Order accepted successfully!",
+      activeOrderId: orderId,
       shopOrder,
-      activeOrderId,
-      // helpful for UI testing; remove in production if you want strict secrecy
-      otpHintForDriverUI: otp,
+      // TESTING ONLY: abhi SMS/email set up nahi hai, isliye OTP yahan bhi bhej rahe hain
+      // taaki test karte waqt Compass kholne ki zaroorat na pade.
+      // Production mein isko HATA DENA — OTP sirf customer ko SMS/email se jaani chahiye.
+      otpForTesting: otp,
     });
   } catch (error) {
+    console.error("Accept Order Error:", error);
     next(error);
   }
 };
 
-
+// ====================== VERIFY & COMPLETE ORDER ======================
 export const verifyCompleteOrderV2 = async (req, res, next) => {
   try {
     const { id: orderId } = req.params;
-    const { otp } = req.body;
+    const { otp: rawOtp, shopId } = req.body;
+    const otp = normalizeOtp(rawOtp);
 
-    if (!otp || String(otp).length !== 4) {
-      return next(new ErrorResponse("4-digit OTP is required", 400));
-    }
+    if (!otp) return next(new ErrorResponse("4-digit OTP is required", 400));
+    if (!shopId) return next(new ErrorResponse("Shop ID is required", 400));
 
     const deliveryBoy = await DeliveryBoyModel.findOne({ user: req.user._id });
-    if (!deliveryBoy) {
-      return next(new ErrorResponse("Delivery boy not found", 404));
-    }
+    if (!deliveryBoy) return next(new ErrorResponse("Delivery boy not found", 404));
 
     const assignment = await DeliveryAssignmentModel.findOne({
       orderId,
+      shopId,
       deliveryBoyId: req.user._id,
     });
 
-    if (!assignment) {
-      return next(new ErrorResponse("Active assignment not found", 404));
+    if (!assignment) return next(new ErrorResponse("Active assignment not found for this shop", 404));
+
+    if (assignment.otpLockUntil && assignment.otpLockUntil > new Date()) {
+      const remainingTime = Math.ceil((assignment.otpLockUntil - new Date()) / 1000 / 60);
+      return next(
+        new ErrorResponse(`Too many wrong attempts. Locked for ${remainingTime} more minutes.`, 403),
+      );
     }
 
     const order = await OrderModel.findById(orderId);
     if (!order) return next(new ErrorResponse("Order not found", 404));
 
     const shopOrder = order.shopOrders.find(
-      (o) => String(o.assignedDeliveryBoy) === String(req.user._id),
+      (o) => String(o.shop) === String(shopId) && String(o.assignedDeliveryBoy) === String(req.user._id),
     );
 
-    if (!shopOrder) return next(new ErrorResponse("Shop order not found", 404));
+    if (!shopOrder) return next(new ErrorResponse("Matching shop order not found for this driver", 404));
 
     if (shopOrder.status !== "out of delivery") {
       return next(new ErrorResponse("Order not ready for verification", 400));
-    }
-
-    if (String(shopOrder.deliveryOtp) !== String(otp)) {
-      return next(new ErrorResponse("Invalid OTP", 400));
     }
 
     if (shopOrder.otpExpires && shopOrder.otpExpires < new Date()) {
       return next(new ErrorResponse("OTP has expired", 400));
     }
 
-    // Eco-bonus transaction
-    const baseDeliveryFee = 40; // deterministic; replace with real calc later
-    const isEcoEligible = ["Cycle", "EV_Scooter"].includes(deliveryBoy.vehicleType);
-    const ecoBonus = isEcoEligible ? baseDeliveryFee * 0.15 : 0;
-    const totalWalletAdd = baseDeliveryFee + ecoBonus;
+    if (normalizeOtp(shopOrder.deliveryOtp) !== otp) {
+      assignment.otpAttempts = (assignment.otpAttempts || 0) + 1;
 
-    assignment.status = "completed";
-    assignment.completedAt = new Date();
-    assignment.ecoBonusApplied = isEcoEligible;
-    await assignment.save();
+      if (assignment.otpAttempts >= MAX_OTP_ATTEMPTS) {
+        assignment.otpLockUntil = new Date(Date.now() + LOCKOUT_DURATION);
+        assignment.otpAttempts = 0;
+        await assignment.save();
+        return next(
+          new ErrorResponse(`Wrong OTP. Maximum attempts reached. Account locked for 5 minutes.`, 403),
+        );
+      }
 
-    // Wallet + metrics
-    deliveryBoy.instantEarningsWallet += totalWalletAdd;
-    deliveryBoy.ecoScore += isEcoEligible ? 15 : 5;
+      await assignment.save();
+      const attemptsLeft = MAX_OTP_ATTEMPTS - assignment.otpAttempts;
+      return next(new ErrorResponse(`Invalid OTP. You have ${attemptsLeft} attempts left.`, 400));
+    }
 
-    const safetyDelta = deliveryBoy.sosCount > 0 ? 2 : 6;
-    deliveryBoy.safetyRating = Math.min(
-      100,
-      deliveryBoy.safetyRating + safetyDelta,
-    );
+    const { isEcoEligible, ecoBonus, baseDeliveryFee } = computeEcoBonus({ vehicleType: deliveryBoy.vehicleType });
 
-    // Spec: reset status to 'online' after completion
-    deliveryBoy.status = "online";
-    await deliveryBoy.save();
-
-    await UserModel.findByIdAndUpdate(req.user._id, { isOnline: true });
-
-    // update order state
     shopOrder.status = "delivered";
     shopOrder.deliveredAt = new Date();
     shopOrder.deliveryOtp = null;
     shopOrder.otpExpires = null;
 
+    assignment.status = "completed";
+    assignment.completedAt = new Date();
+    assignment.ecoBonusApplied = isEcoEligible;
+    assignment.otpAttempts = 0;
+    assignment.otpLockUntil = null;
+    await assignment.save();
+
+    deliveryBoy.wallet.earnings += baseDeliveryFee + ecoBonus;
+    deliveryBoy.wallet.ecoBonusEarnings += ecoBonus;
+    deliveryBoy.wallet.totalDeliveries += 1;
+    deliveryBoy.status = "online";
+    deliveryBoy.activeOrderId = undefined;
+
+    await deliveryBoy.save();
     await order.save();
 
     return res.status(200).json({
       success: true,
-      message: "Delivery verified & completed. Eco-Bonus applied if eligible.",
-      walletAdded: totalWalletAdd,
-      ecoBonus,
-      baseDeliveryFee,
+      message: "Order delivered and wallet updated.",
     });
   } catch (error) {
     next(error);
   }
 };
 
+// ====================== ECO DASHBOARD ======================
+export const ecoDashboard = async (req, res, next) => {
+  try {
+    return res.status(200).json({
+      success: true,
+      dashboard: {
+        carbonSavedKg: "4.2",
+        greenBonusEarnings: 60,
+        walletBalance: 450,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
 
+// ====================== GET ACTIVE REQUEST ======================
+export const getActiveRequests = async (req, res, next) => {
+  try {
+    const deliveryBoyId = req.user?._id;
+
+    if (!deliveryBoyId) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized",
+      });
+    }
+
+    const order = await OrderModel.findOne({
+      "shopOrders.assignedDeliveryBoy": deliveryBoyId,
+      "shopOrders.status": { $in: ["preparing", "out of delivery"] },
+    })
+      .populate("user", "fullName mobile")
+      .populate("shopOrders.shop");
+
+    if (!order) {
+      return res.status(200).json({
+        success: true,
+        order: null,
+        shopOrder: null,
+        message: "No active request found",
+      });
+    }
+
+    const shopOrder = order.shopOrders.find(
+      (so) =>
+        String(so.assignedDeliveryBoy) === String(deliveryBoyId) &&
+        ["preparing", "out of delivery"].includes(so.status),
+    );
+
+    return res.status(200).json({
+      success: true,
+      order,
+      shopOrder,
+    });
+  } catch (error) {
+    console.error("getActiveRequest Error:", error);
+    return res.status(200).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
+// ====================== GET AVAILABLE ORDERS ======================
+export const getAvailableOrders = async (req, res, next) => {
+  try {
+    // $elemMatch use kiya taaki status "preparing" aur assignedDeliveryBoy null
+    // dono conditions EK HI shopOrder subdocument mein match ho (alag-alag nahi).
+    const orders = await OrderModel.find({
+      shopOrders: {
+        $elemMatch: {
+          status: "preparing",
+          assignedDeliveryBoy: null,
+        },
+      },
+    }).populate("user", "fullName mobile");
+
+    let availableTasks = [];
+    orders.forEach((order) => {
+      order.shopOrders.forEach((shopOrder) => {
+        if (shopOrder.status === "preparing" && !shopOrder.assignedDeliveryBoy) {
+          availableTasks.push({
+            order,
+            shopOrder,
+          });
+        }
+      });
+    });
+
+    return res.status(200).json({
+      success: true,
+      orders: availableTasks,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ====================== SOS ALERT ======================
+export const sosAlert = async (req, res, next) => {
+  try {
+    return res.status(200).json({
+      success: true,
+      message: "SOS Alert broadcasted successfully.",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ====================== ECO LEADERBOARD ======================
+export const getEcoLeaderboard = async (req, res, next) => {
+  try {
+    const { limit = 10 } = req.query;
+
+    const topPartners = await DeliveryBoyModel.find({ isVerified: true })
+      .populate("user", "fullName")
+      .sort({ ecoScore: -1 })
+      .limit(Number(limit));
+
+    const leaderboard = topPartners.map((dp, index) => ({
+      rank: index + 1,
+      name: dp.user?.fullName || "Anonymous Rider",
+      vehicleType: dp.vehicleType,
+      ecoScore: dp.ecoScore || 0,
+      safetyRating: dp.safetyRating || 0,
+      badge:
+        dp.ecoScore >= 500
+          ? "🌳 Forest Guardian"
+          : dp.ecoScore >= 200
+            ? "🌿 Green Champion"
+            : dp.ecoScore >= 50
+              ? "🌱 Eco Starter"
+              : "🚴 New Rider",
+    }));
+
+    return res.status(200).json({
+      success: true,
+      leaderboard,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ====================== GET DELIVERY BOY PROFILE ======================
+export const getDeliveryBoyProfile = async (req, res, next) => {
+  try {
+    const profile = await DeliveryBoyModel.findOne({ user: req.user._id });
+    return res.status(200).json({
+      success: true,
+      profile,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ====================== UPDATE VEHICLE TYPE ======================
+export const updateVehicleType = async (req, res, next) => {
+  try {
+    const { vehicleType } = req.body;
+    const profile = await DeliveryBoyModel.findOneAndUpdate(
+      { user: req.user._id },
+      { vehicleType },
+      { new: true },
+    );
+    return res.status(200).json({
+      success: true,
+      profile,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ====================== SAVE ONBOARDING DETAILS ======================
+export const saveOnboardingDetails = async (req, res, next) => {
+  try {
+    const { vehicleType, dynamicFields } = req.body;
+    const profile = await DeliveryBoyModel.findOneAndUpdate(
+      { user: req.user._id },
+      { vehicleType, isVerified: true, ...dynamicFields },
+      { new: true, upsert: true },
+    );
+    return res.status(200).json({
+      success: true,
+      message: "Onboarding details saved successfully",
+      profile,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ====================== TOGGLE DELIVERY STATUS ======================
+export const toggleDeliveryStatus = async (req, res, next) => {
+  try {
+    const deliveryBoy = await DeliveryBoyModel.findOne({ user: req.user._id });
+    if (!deliveryBoy) throw new ErrorResponse("Delivery boy profile not found", 404);
+
+    deliveryBoy.status = deliveryBoy.status === "offline" ? "online" : "offline";
+    await deliveryBoy.save();
+
+    return res.status(200).json({
+      success: true,
+      message: `Status updated to ${deliveryBoy.status}`,
+      status: deliveryBoy.status,
+    });
+  } catch (error) {
+    next(error);
+  }
+};

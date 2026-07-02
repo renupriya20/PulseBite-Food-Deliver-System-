@@ -21,6 +21,7 @@ import Register from "./pages/Register";
 import SSOCallback from "./pages/SSOCallback";
 import OrderPlaced from "./pages/OrederPlaced";
 import MyOrders from "./pages/MyOrders";
+import EcoLeaderboard from "./pages/EcoLeaderboard";
 
 const App = () => {
   const { userData, loading } = useSelector((state) => state.user);
@@ -95,6 +96,12 @@ const App = () => {
           path="/my-orders"
           element={userData ? <MyOrders /> : <Navigate to="/login" />}
         />
+
+        <Route
+          path="/leaderboard"
+          element={userData ? <EcoLeaderboard /> : <Navigate to="/login" />}
+        />
+        
       </Routes>
     </>
   );
