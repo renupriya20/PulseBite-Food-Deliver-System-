@@ -13,6 +13,9 @@ import {
     getDeliveryBoyProfile,
     getAvailableOrders
 } from "../controllers/delivery.controller.js";
+import { updateVehicleType } from "../controllers/delivery.controller.js";
+
+// ...
 
 
 
@@ -96,6 +99,11 @@ deliveryRouter.get(
     authorizeRoles("deliveryBoy"),
     getAvailableOrders
 );
-
+deliveryRouter.put(
+    "/vehicle-type",
+    authenticate,
+    authorizeRoles("deliveryBoy"),
+    updateVehicleType
+);
 export default deliveryRouter;
 

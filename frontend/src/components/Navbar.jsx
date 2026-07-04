@@ -80,7 +80,7 @@ function Navbar({ onOwnerOrdersClick }) {
               </button>
             )}
 
-            {/* Delivery Boy: Online toggle indicator */}
+            {/* Delivery Boy: Online toggle indicator
             {userData.role === "deliveryBoy" && (
               <span
                 className={`hidden md:flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full ${userData.isOnline
@@ -93,7 +93,7 @@ function Navbar({ onOwnerOrdersClick }) {
                 />
                 {userData.isOnline ? "Online" : "Offline"}
               </span>
-            )}
+            )} */}
 
             {/* Owner: Add Item */}
             {userData.role === "owner" && shopData && (

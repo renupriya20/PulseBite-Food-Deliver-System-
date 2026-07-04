@@ -31,10 +31,10 @@ function Step({ number, label, active, done }) {
     <div className="flex items-center gap-2">
       <div
         className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300 ${done
-            ? "bg-orange-500 text-white"
-            : active
-              ? "bg-stone-900 text-white"
-              : "bg-stone-100 text-stone-400"
+          ? "bg-orange-500 text-white"
+          : active
+            ? "bg-stone-900 text-white"
+            : "bg-stone-100 text-stone-400"
           }`}
       >
         {done ? "✓" : number}
@@ -113,30 +113,30 @@ function Checkout() {
     }
   };
 
-  const handlePlaceOrder = async () => {
-    setLoading(true);
-    try {
-      const result = await axiosInstance.post(ORDER_ROUTES.PLACE_ORDER, {
-        paymentMethod,
-        deliveryAddress: {
-          text: addressInput,
-          latitude: location.lat,
-          longitude: location.lon,
-        },
-        totalAmount: grandTotal,
-        cartItems,
-      });
-      if (paymentMethod === "cod") {
-        navigate("/order-placed", { state: { order: result.data.newOrder } });
-      } else {
-        // openRazorpayWindow(result.data.orderId, result.data.razorOrder);
-      }
-    } catch (error) {
-      console.log(error.response);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // const handlePlaceOrder = async () => {
+  //   setLoading(true);
+  //   try {
+  //     const result = await axiosInstance.post(ORDER_ROUTES.PLACE_ORDER, {
+  //       paymentMethod,
+  //       deliveryAddress: {
+  //         text: addressInput,
+  //         latitude: location.lat,
+  //         longitude: location.lon,
+  //       },
+  //       totalAmount: grandTotal,
+  //       cartItems,
+  //     });
+  //     if (paymentMethod === "cod") {
+  //       navigate("/order-placed", { state: { order: result.data.newOrder } });
+  //     } else {
+  //       // openRazorpayWindow(result.data.orderId, result.data.razorOrder);
+  //     }
+  //   } catch (error) {
+  //     console.log(error.response);
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
 
   // const openRazorpayWindow = (orderId, razorOrder) => {
   //   const options = {
@@ -163,6 +163,66 @@ function Checkout() {
   //   const rzp = new window.Razorpay(options);
   //   rzp.open();
   // };
+  const handlePlaceOrder = async () => {
+    setLoading(true);
+    console.log("cartItems:", cartItems); 
+    try {
+      const result = await axiosInstance.post(ORDER_ROUTES.PLACE_ORDER, {
+        paymentMethod,
+        deliveryAddress: {
+          text: addressInput,
+          latitude: location.lat,
+          longitude: location.lon,
+        },
+        totalAmount: grandTotal,
+        cartItems,
+      });
+
+      if (paymentMethod === "cod") {
+        navigate("/order-placed", { state: { order: result.data.newOrder } });
+      } else {
+        openRazorpayWindow(
+          result.data.newOrder._id,
+          result.data.razorpayOrder,
+          result.data.key,
+        );
+      }
+    } catch (error) {
+      console.log(error.response);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const openRazorpayWindow = (orderId, razorpayOrder, key) => {
+    const options = {
+      key: key || import.meta.env.VITE_RAZORPAY_KEY_ID,
+      amount: razorpayOrder.amount,
+      currency: razorpayOrder.currency,
+      name: "PulseBite",
+      description: "Food Delivery Order",
+      order_id: razorpayOrder.id,
+      handler: async function (response) {
+        try {
+          await axiosInstance.post(ORDER_ROUTES.VERIFY_PAYMENT, {
+            razorpay_order_id: response.razorpay_order_id,
+            razorpay_payment_id: response.razorpay_payment_id,
+            razorpay_signature: response.razorpay_signature,
+            orderId,
+          });
+          navigate("/order-placed", { state: { order: { _id: orderId } } });
+        } catch (error) {
+          console.log(error);
+          alert("Payment verification failed. Please contact support.");
+        }
+      },
+      theme: {
+        color: "#f97316",
+      },
+    };
+    const rzp = new window.Razorpay(options);
+    rzp.open();
+  };
 
   return (
     <div className="min-h-screen w-full bg-stone-50">
@@ -295,8 +355,8 @@ function Checkout() {
               <button
                 onClick={() => setPaymentMethod("cod")}
                 className={`flex items-center gap-3 rounded-xl border-2 p-4 text-left transition-all duration-200 cursor-pointer ${paymentMethod === "cod"
-                    ? "border-orange-500 bg-orange-50 shadow-sm shadow-orange-100"
-                    : "border-stone-200 hover:border-stone-300 bg-white"
+                  ? "border-orange-500 bg-orange-50 shadow-sm shadow-orange-100"
+                  : "border-stone-200 hover:border-stone-300 bg-white"
                   }`}
               >
                 <span className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center shrink-0">
@@ -320,8 +380,8 @@ function Checkout() {
               <button
                 onClick={() => setPaymentMethod("online")}
                 className={`flex items-center gap-3 rounded-xl border-2 p-4 text-left transition-all duration-200 cursor-pointer ${paymentMethod === "online"
-                    ? "border-orange-500 bg-orange-50 shadow-sm shadow-orange-100"
-                    : "border-stone-200 hover:border-stone-300 bg-white"
+                  ? "border-orange-500 bg-orange-50 shadow-sm shadow-orange-100"
+                  : "border-stone-200 hover:border-stone-300 bg-white"
                   }`}
               >
                 <span className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center shrink-0">

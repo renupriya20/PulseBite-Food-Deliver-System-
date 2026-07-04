@@ -6,11 +6,15 @@ import {
   getOnlineDeliveryBoys,
   getOrders,
   placeOrder,
+  resendOtp,
   startDelivery,
   updateOrderStatus,
+  verifyPayment,
 } from "../controllers/order.controller.js";
-import { authenticate } from "../middlewares/auth.middleware.js";
+import { authenticate, } from "../middlewares/auth.middleware.js";
 import { authorizeRoles } from "../middlewares/role.middleware.js";
+
+
 
 const orderRouter = Router();
 
@@ -58,6 +62,19 @@ orderRouter.get(
   authenticate,
   authorizeRoles("owner"),
   getOnlineDeliveryBoys,
+);
+
+orderRouter.post(
+  "/verify-payment",
+  authenticate,
+  verifyPayment
+);
+
+orderRouter.post(
+  "/resend-otp/:orderId/:shopId",
+  authenticate,
+  authorizeRoles("deliveryBoy"),
+  resendOtp,
 );
 
 export default orderRouter;

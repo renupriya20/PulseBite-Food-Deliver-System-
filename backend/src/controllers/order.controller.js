@@ -1,3 +1,5 @@
+import crypto from "crypto";
+import razorpayInstance from "../config/razorpay.config.js";
 import mongoose from "mongoose";
 import OrderModel from "../models/order.model.js";
 import ShopModel from "../models/Shop.model.js";
@@ -6,6 +8,7 @@ import UserModel from "../models/User.model.js";
 import DeliveryBoyModel from "../models/DeliveryBoy.model.js";
 import DeliveryAssignmentModel from "../models/DeliveryAssignment.model.js";
 import ErrorResponse from "../utils/ApiError.util.js";
+
 
 const BASE_DELIVERY_FEE = 40;
 const ECO_BONUS_RATE = 0.15;
@@ -33,92 +36,93 @@ const computeEcoBonus = ({ vehicleType }) => {
    Customer places an order. Cart items are grouped
    by shop into order.shopOrders[].
 --------------------------------------------- */
+
 // export const placeOrder = async (req, res, next) => {
 //     try {
-//         const { cartItems, deliveryAddress, paymentMethod } = req.body;
+//         const { cartItems, paymentMethod, deliveryAddress, totalAmount } = req.body;
 
-//         if (!Array.isArray(cartItems) || cartItems.length === 0) {
-//             return next(new ErrorResponse("Cart is empty", 400));
-//         }
-//         if (!deliveryAddress) {
-//             return next(new ErrorResponse("Delivery address is required", 400));
-//         }
+//         const groupItemsByShop = {};
 
-//         // Group items by shop
-//         const groupedByShop = {};
-//         for (const cartItem of cartItems) {
-//             const item = await ItemModel.findById(cartItem.item);
-//             if (!item) return next(new ErrorResponse(`Item not found: ${cartItem.item}`, 404));
-
-//             const shopId = String(item.shop);
-//             if (!groupedByShop[shopId]) groupedByShop[shopId] = [];
-
-//             groupedByShop[shopId].push({
-//                 item: item._id,
-//                 name: item.name,
-//                 price: item.price,
-//                 quantity: cartItem.quantity || 1,
-//             });
-//         }
-
-//         const shopOrders = Object.entries(groupedByShop).map(([shopId, items]) => {
-//             const subtotal = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
-//             return {
-//                 shop: shopId,
-//                 items,
-//                 subtotal,
-//                 status: "pending",
-//                 assignedDeliveryBoy: null,
-//                 deliveryOtp: null,
-//                 otpExpires: null,
-//                 deliveredAt: null,
-//             };
+//         cartItems.forEach((item) => {
+//             const shopId = item.shop;
+//             if (!groupItemsByShop[shopId]) {
+//                 groupItemsByShop[shopId] = [];
+//             }
+//             groupItemsByShop[shopId].push(item);
 //         });
 
-//         const totalAmount = shopOrders.reduce((sum, so) => sum + so.subtotal, 0);
+//         const shopOrders = await Promise.all(
+//             Object.keys(groupItemsByShop).map(async (shopId) => {
+//                 const shop = await ShopModel.findById(shopId).populate("owner");
 
-//         const order = await OrderModel.create({
+//                 if (!shop) {
+//                     return next(
+//                         new ErrorResponse(`Shop with id ${shopId} not found`, 404),
+//                     );
+//                 }
+
+//                 const items = groupItemsByShop[shopId];
+//                 const subtotal = items.reduce(
+//                     (sum, item) => sum + Number(item.price) * Number(item.quantity),
+//                     0,
+//                 );
+
+//                 return {
+//                     shop: shop._id,
+//                     owner: shop.owner._id,
+//                     subtotal,
+//                     shopOrderItems: items.map((item) => {
+//                         console.log("item: ", item);
+//                         return {
+//                             item: item.id,
+//                             price: item.price,
+//                             quantity: item.quantity,
+//                             name: item.name,
+//                         };
+//                     }),
+//                 };
+//             }),
+//         );
+
+//         const newOrder = await OrderModel.create({
 //             user: req.user._id,
-//             shopOrders,
+//             paymentMethod,
 //             deliveryAddress,
-//             paymentMethod: paymentMethod || "COD",
 //             totalAmount,
+//             shopOrders,
 //         });
+
+//         await newOrder.populate(
+//             "shopOrders.shopOrderItems.item",
+//             "name image price",
+//         );
+//         await newOrder.populate("shopOrders.shop", "name");
 
 //         return res.status(201).json({
 //             success: true,
 //             message: "Order placed successfully",
-//             order,
+//             newOrder,
 //         });
 //     } catch (error) {
 //         next(error);
 //     }
 // };
 
-
 export const placeOrder = async (req, res, next) => {
     try {
         const { cartItems, paymentMethod, deliveryAddress, totalAmount } = req.body;
 
         const groupItemsByShop = {};
-
         cartItems.forEach((item) => {
             const shopId = item.shop;
-            if (!groupItemsByShop[shopId]) {
-                groupItemsByShop[shopId] = [];
-            }
+            if (!groupItemsByShop[shopId]) groupItemsByShop[shopId] = [];
             groupItemsByShop[shopId].push(item);
         });
 
         const shopOrders = await Promise.all(
             Object.keys(groupItemsByShop).map(async (shopId) => {
                 const shop = await ShopModel.findById(shopId).populate("owner");
-
-                if (!shop) {
-                    return next(
-                        new ErrorResponse(`Shop with id ${shopId} not found`, 404),
-                    );
-                }
+                if (!shop) return next(new ErrorResponse(`Shop with id ${shopId} not found`, 404));
 
                 const items = groupItemsByShop[shopId];
                 const subtotal = items.reduce(
@@ -130,42 +134,72 @@ export const placeOrder = async (req, res, next) => {
                     shop: shop._id,
                     owner: shop.owner._id,
                     subtotal,
-                    shopOrderItems: items.map((item) => {
-                        console.log("item: ", item);
-                        return {
-                            item: item.id,
-                            price: item.price,
-                            quantity: item.quantity,
-                            name: item.name,
-                        };
-                    }),
+                    shopOrderItems: items.map((item) => ({
+                        item: item.id,
+                        price: item.price,
+                        quantity: item.quantity,
+                        name: item.name,
+                    })),
                 };
             }),
         );
 
-        const newOrder = await OrderModel.create({
-            user: req.user._id,
-            paymentMethod,
-            deliveryAddress,
-            totalAmount,
-            shopOrders,
-        });
+        // ---------- COD FLOW ----------
+        if (paymentMethod === "cod") {
+            const newOrder = await OrderModel.create({
+                user: req.user._id,
+                paymentMethod,
+                deliveryAddress,
+                totalAmount,
+                shopOrders,
+            });
 
-        await newOrder.populate(
-            "shopOrders.shopOrderItems.item",
-            "name image price",
-        );
-        await newOrder.populate("shopOrders.shop", "name");
+            await newOrder.populate("shopOrders.shopOrderItems.item", "name image price");
+            await newOrder.populate("shopOrders.shop", "name");
 
-        return res.status(201).json({
-            success: true,
-            message: "Order placed successfully",
-            newOrder,
-        });
+            return res.status(201).json({
+                success: true,
+                message: "Order placed successfully",
+                newOrder,
+            });
+        }
+
+        // ---------- ONLINE / UPI FLOW ----------
+        if (paymentMethod === "online") {
+            const newOrder = await OrderModel.create({
+                user: req.user._id,
+                paymentMethod,
+                deliveryAddress,
+                totalAmount,
+                shopOrders,
+                payment: false,
+            });
+
+            const razorpayOrder = await razorpayInstance.orders.create({
+                amount: Math.round(totalAmount * 100),
+                currency: "INR",
+                receipt: String(newOrder._id),
+            });
+
+            newOrder.razorpayOrderId = razorpayOrder.id;
+            await newOrder.save();
+
+            return res.status(201).json({
+                success: true,
+                message: "Razorpay order created, complete payment",
+                newOrder,
+                razorpayOrder,
+                key: process.env.RAZORPAY_KEY_ID,
+            });
+        }
+
+        return next(new ErrorResponse("Invalid payment method", 400));
     } catch (error) {
         next(error);
     }
 };
+
+
 /* ---------------------------------------------
    getOrders
    GET /api/order/orders
@@ -190,9 +224,11 @@ export const getOrders = async (req, res, next) => {
             orders = await OrderModel.find({ "shopOrders.assignedDeliveryBoy": req.user._id })
                 .populate("user", "name email mobile")
                 .sort({ createdAt: -1 });
-        } else {
+        }
+        else {
             orders = await OrderModel.find({ user: req.user._id })
                 .populate("shopOrders.shop", "name")
+                .populate("shopOrders.assignedDeliveryBoy", "fullName mobile")
                 .sort({ createdAt: -1 });
         }
 
@@ -581,5 +617,90 @@ export const completeDelivery = async (req, res, next) => {
         return next(error);
     } finally {
         session.endSession();
+    }
+};
+
+/* ---------------------------------------------
+   resendOtp
+   POST /api/v1/order/resend-otp/:orderId/:shopId
+   Delivery boy ke liye naya OTP generate karta hai
+   agar purana expire ho gaya ho.
+--------------------------------------------- */
+export const resendOtp = async (req, res, next) => {
+    try {
+        const { orderId, shopId } = req.params;
+
+        const order = await OrderModel.findById(orderId);
+        if (!order) return next(new ErrorResponse("Order not found", 404));
+
+        const shopOrder = order.shopOrders.find(
+            (o) =>
+                String(o.shop) === String(shopId) &&
+                String(o.assignedDeliveryBoy) === String(req.user._id),
+        );
+
+        if (!shopOrder) return next(new ErrorResponse("Shop order not found", 404));
+
+        if (shopOrder.status !== "out of delivery") {
+            return next(new ErrorResponse("OTP can only be resent for active deliveries", 400));
+        }
+
+        const newOtp = Math.floor(1000 + Math.random() * 9000).toString();
+        shopOrder.deliveryOtp = newOtp;
+        shopOrder.otpExpires = new Date(Date.now() + 30 * 60 * 1000); // 30 minute
+
+        await order.save();
+
+        return res.status(200).json({
+            success: true,
+            message: "New OTP generated successfully",
+            otpForTesting: newOtp, // testing ke liye — production mein SMS/email se bhejna
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+/* ---------------------------------------------
+   verifyPayment
+   POST /api/order/verify-payment
+   Razorpay se payment success hone ke baad,
+   frontend ye call karega signature verify karne ke liye
+--------------------------------------------- */
+export const verifyPayment = async (req, res, next) => {
+    try {
+        const {
+            razorpay_order_id,
+            razorpay_payment_id,
+            razorpay_signature,
+            orderId,
+        } = req.body;
+
+        const sign = razorpay_order_id + "|" + razorpay_payment_id;
+
+        const expectedSignature = crypto
+            .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
+            .update(sign)
+            .digest("hex");
+
+        if (expectedSignature !== razorpay_signature) {
+            return next(new ErrorResponse("Payment verification failed", 400));
+        }
+
+        const order = await OrderModel.findById(orderId);
+        if (!order) return next(new ErrorResponse("Order not found", 404));
+
+        order.payment = true;
+        order.razorpayPaymentId = razorpay_payment_id;
+        order.razorpaySignature = razorpay_signature;
+        await order.save();
+
+        return res.status(200).json({
+            success: true,
+            message: "Payment verified successfully",
+            order,
+        });
+    } catch (error) {
+        next(error);
     }
 };

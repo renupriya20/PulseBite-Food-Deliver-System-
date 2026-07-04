@@ -211,6 +211,12 @@ function OrderCard({ order, shopOrder, type, onAction }) {
             >
               Complete Delivery
             </button>
+            <button
+              onClick={() => onAction("resend", order._id, shopId)}
+              className="w-full text-orange-500 hover:text-orange-600 text-xs font-semibold underline py-1 cursor-pointer"
+            >
+              Resend OTP
+            </button>
           </div>
         )}
       </div>
@@ -304,6 +310,12 @@ function DeliveryBoy() {
           ORDER_ROUTES.COMPLETE_DELIVERY(orderId, shopId),
           { otp },
         );
+      }
+      else if (action === "resend") {
+        res = await axiosInstance.post(ORDER_ROUTES.RESEND_OTP(orderId, shopId));
+        if (res.data?.otpForTesting) {
+          toast.message(`New OTP: ${res.data.otpForTesting}`);
+        }
       }
       toast.success(res.data.message);
       fetchOrders();

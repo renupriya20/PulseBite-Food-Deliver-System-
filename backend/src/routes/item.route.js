@@ -37,10 +37,22 @@ itemRouter.patch(
   editItem,
 );
 
-itemRouter.get("/:itemId", authenticate, getItemById);
+itemRouter.get(
+  "/:itemId",
+   authenticate,
+    getItemById
+  );
 
-itemRouter.delete("/:itemId", authenticate, deleteItem);
+itemRouter.delete(
+  "/:itemId",
+   authenticate,
+    deleteItem
+  );
 
-itemRouter.get("/get-by-city/:city", authenticate, getItemsByCity);
+itemRouter.get(
+  "/get-by-city/:city", 
+  authenticate,
+   getItemsByCity
+  );
 
 export default itemRouter;

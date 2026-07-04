@@ -37,6 +37,7 @@ export const ITEM_ROUTES = {
 
 export const ORDER_ROUTES = {
   PLACE_ORDER: `${BACKEND_URL}/api/v1/order/place`,
+  VERIFY_PAYMENT: `${BACKEND_URL}/api/v1/order/verify-payment`,
   GET_ORDERS: `${BACKEND_URL}/api/v1/order/orders`,
   UPDATE_STATUS: (orderId, shopId) =>
     `${BACKEND_URL}/api/v1/order/update-status/${orderId}/${shopId}`,
@@ -49,6 +50,8 @@ export const ORDER_ROUTES = {
   ASSIGN_DELIVERY_BOY: (orderId, shopId, deliveryBoyId) =>
     `${BACKEND_URL}/api/v1/order/assign/${orderId}/${shopId}/${deliveryBoyId}`,
   ONLINE_DELIVERY_BOYS: `${BACKEND_URL}/api/v1/order/online-delivery-boys`,
+  RESEND_OTP: (orderId, shopId) =>
+    `${BACKEND_URL}/api/v1/order/resend-otp/${orderId}/${shopId}`,
 };
 
 export const DELIVERY_ROUTES = {
