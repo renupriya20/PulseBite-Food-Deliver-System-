@@ -1,4 +1,4 @@
-# 🍔 OrderKaro — Real-Time Food Delivery Web Application
+# 🍔 PulseBite — Real-Time Food Delivery Web Application
 
 > A full-stack, production-ready food delivery platform built with the **MERN Stack**, featuring live GPS order tracking, integrated payments, Google OAuth, and dedicated dashboards for every stakeholder.
 
@@ -12,26 +12,42 @@
 
 ## 📌 Table of Contents
 
-- [Overview](#-overview)
-- [Live Demo](#-live-demo)
-- [Features](#-features)
-- [Tech Stack](#-tech-stack)
-- [System Architecture](#-system-architecture)
-- [Modules](#-modules)
-- [Database Design](#-database-design)
-- [Getting Started](#-getting-started)
-- [Environment Variables](#-environment-variables)
-- [API Overview](#-api-overview)
-- [Screenshots](#-screenshots)
-- [Roadmap](#-roadmap)
-- [Contributing](#-contributing)
-- [License](#-license)
+- [🍔 PulseBite — Real-Time Food Delivery Web Application](#-pulsebite--real-time-food-delivery-web-application)
+  - [📌 Table of Contents](#-table-of-contents)
+  - [🧾 Overview](#-overview)
+  - [🌐 Live Demo](#-live-demo)
+  - [✨ Features](#-features)
+    - [For Customers](#for-customers)
+    - [For Restaurant Owners](#for-restaurant-owners)
+    - [For Delivery Partners](#for-delivery-partners)
+    - [For Administrators](#for-administrators)
+  - [🛠 Tech Stack](#-tech-stack)
+  - [🏗 System Architecture](#-system-architecture)
+    - [Real-Time Event Flow (Socket.io)](#real-time-event-flow-socketio)
+  - [📦 Modules](#-modules)
+  - [🗄 Database Design](#-database-design)
+    - [Collections](#collections)
+    - [Key Relationships](#key-relationships)
+  - [🚀 Getting Started](#-getting-started)
+    - [Prerequisites](#prerequisites)
+    - [1. Clone the repository](#1-clone-the-repository)
+    - [2. Install dependencies](#2-install-dependencies)
+    - [3. Configure environment variables](#3-configure-environment-variables)
+    - [4. Run the development servers](#4-run-the-development-servers)
+  - [🔐 Environment Variables](#-environment-variables)
+    - [`/server/.env`](#serverenv)
+    - [`/client/.env`](#clientenv)
+  - [📡 API Overview](#-api-overview)
+  - [📸 Screenshots](#-screenshots)
+  - [🗺 Roadmap](#-roadmap)
+  - [🤝 Contributing](#-contributing)
+  - [📄 License](#-license)
 
 ---
 
 ## 🧾 Overview
 
-**OrderKaro** is a multi-role food delivery web application that bridges customers, restaurant owners, delivery partners, and platform administrators on a single unified platform. Unlike aggregator-based systems, OrderKaro is self-hosted — giving restaurant owners full control over their menu, orders, and revenue with zero commission overhead.
+**PulseBite** is a multi-role food delivery web application that bridges customers, restaurant owners, delivery partners, and platform administrators on a single unified platform. Unlike aggregator-based systems, OrderKaro is self-hosted — giving restaurant owners full control over their menu, orders, and revenue with zero commission overhead.
 
 The standout feature is **real-time live tracking**: once an order is dispatched, customers can watch their delivery partner move on an interactive Google Map — updated live via WebSocket connections powered by Socket.io.
 
