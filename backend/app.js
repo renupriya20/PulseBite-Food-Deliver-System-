@@ -27,6 +27,7 @@ app.use(
         "http://localhost:5173",
         "http://localhost:5174",
         "http://localhost:5175",
+        "https://pulse-bite-food-deliver-system-git-main-renukumari.vercel.app",
         FRONTEND_URL,
       ].filter(Boolean);
       if (allowedOrigins.includes(origin)) return cb(null, true);
