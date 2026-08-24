@@ -41,7 +41,6 @@
   - [📸 Screenshots](#-screenshots)
   - [🗺 Roadmap](#-roadmap)
   - [🤝 Contributing](#-contributing)
-  - [📄 License](#-license)
 
 ---
 
@@ -57,8 +56,8 @@ The standout feature is **real-time live tracking**: once an order is dispatched
 
 | Role | Link |
 |------|------|
-| Customer App | [orderkaro.vercel.app](https://orderkaro.vercel.app) |
-| API Server | [orderkaro-api.onrender.com](https://orderkaro-api.onrender.com) |
+| Customer App | [orderkaro.vercel.app](https://pulse-bite-food-deliver-system-cba4p2h14-renukumari.vercel.app) |
+| API Server | [orderkaro-api.onrender.com](https://pulsebite-food-deliver-system.onrender.com) |
 
 > **Test Credentials**
 > - Customer: `customer@demo.com` / `Demo@1234`
@@ -207,8 +206,8 @@ Users (delivery)──1:N──►  DeliveryAssignments
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/Wolfgang281/OrderKaro--food-del-app.git
-cd orderkaro
+git clone https://github.com/renupriya20/PulseBite-Food-Deliver-System-
+cd PulseBite-Food-Deliver-System
 ```
 
 ### 2. Install dependencies
@@ -241,7 +240,7 @@ npm run dev
 ```
 
 Frontend runs at `http://localhost:5173`  
-Backend runs at `http://localhost:5000`
+Backend runs at `http://localhost:9000`
 
 ---
 
@@ -322,15 +321,15 @@ VITE_RAZORPAY_KEY_ID=rzp_test_xxxxxxxxxxxx
 
 ## 🗺 Roadmap
 
-- [x] Customer ordering and cart flow
-- [x] Razorpay payment integration
-- [x] Socket.io real-time order tracking
-- [x] Google Maps live delivery map
-- [x] Clerk OAuth + JWT auth
+- [] Customer ordering and cart flow
+- [] Razorpay payment integration
+- [] Socket.io real-time order tracking
+- [] Google Maps live delivery map
+- [] Clerk OAuth + JWT auth
 - [x] OTP password reset
-- [x] Restaurant owner dashboard
-- [x] Delivery partner GPS broadcasting
-- [x] Admin panel
+- [] Restaurant owner dashboard
+- [] Delivery partner GPS broadcasting
+- [] Admin panel
 - [ ] React Native mobile app
 - [ ] AI-powered restaurant recommendations
 - [ ] Automated delivery partner dispatch algorithm
@@ -345,7 +344,7 @@ VITE_RAZORPAY_KEY_ID=rzp_test_xxxxxxxxxxxx
 Contributions are welcome! To get started:
 
 ```bash
-# Fork https://github.com/Wolfgang281/OrderKaro--food-del-app, then:
+# Fork https://github.com/renupriya20/PulseBite-Food-Deliver-System-, then:
 git checkout -b feature/your-feature-name
 git commit -m "feat: add your feature"
 git push origin feature/your-feature-name
@@ -356,12 +355,9 @@ Please follow the existing code style and ensure your changes do not break exist
 
 ---
 
-## 📄 License
-
-This project is licensed under the [MIT License](https://github.com/Wolfgang281/OrderKaro--food-del-app/blob/main/LICENSE).
 
 ---
 
 <p align="center">
-  Built with ❤️ using the MERN Stack &nbsp;|&nbsp; Academic Year 2026–2027
+  Built with ❤️ using the MERN Stack &nbsp;|&nbsp; 
 </p>
