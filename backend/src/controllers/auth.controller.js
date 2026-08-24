@@ -17,8 +17,8 @@ export const register = async (req, res, next) => {
     const token = generateToken(user._id);
 
     res.cookie("token", token, {
-      secure: false,
-      sameSite: "strict",
+      secure: true,
+      sameSite: "None",
       maxAge: 7 * 24 * 60 * 60 * 1000,
       httpOnly: true,
     });
