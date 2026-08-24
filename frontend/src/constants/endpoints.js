@@ -1,5 +1,5 @@
 export const BACKEND_URL =
-  import.meta.env.VITE_BACKEND_URL || "https://https://pulsebite-food-deliver-system.onrender.com/";
+  import.meta.env.VITE_BACKEND_URL || "https://pulsebite-food-deliver-system.onrender.com";
 
 export const AUTH_ROUTES = {
   REGISTER: `${BACKEND_URL}/api/v1/auth/register`,
