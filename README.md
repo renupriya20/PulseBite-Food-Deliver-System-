@@ -56,8 +56,8 @@ The standout feature is **real-time live tracking**: once an order is dispatched
 
 | Role | Link |
 |------|------|
-| Customer App | [orderkaro.vercel.app](https://pulse-bite-food-deliver-system-cba4p2h14-renukumari.vercel.app) |
-| API Server | [orderkaro-api.onrender.com](https://pulsebite-food-deliver-system.onrender.com) |
+| Customer App | [PulseBite.vercel.app](https://pulse-bite-food-deliver-system-cba4p2h14-renukumari.vercel.app) |
+| API Server | [PulseBite-api.onrender.com](https://pulsebite-food-deliver-system.onrender.com) |
 
 > **Test Credentials**
 > - Customer: `customer@demo.com` / `Demo@1234`
